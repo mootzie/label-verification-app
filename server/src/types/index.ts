@@ -5,7 +5,7 @@ export interface FieldResult {
   expectedValue: string | null;
   foundValue: string | null;
   status: FieldStatus;
-  notes: string;
+  notes?: string;
 }
 
 export type OverallStatus = 'pass' | 'fail' | 'warning';
