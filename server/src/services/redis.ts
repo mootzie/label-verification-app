@@ -13,8 +13,8 @@ const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
 redis.on('error', (err) => console.error('[redis] connection error:', err));
 
 const keys = {
-  batchJob:    (jobId: string)                    => `batch:job:${jobId}`,
-  labelResult: (jobId: string, labelId: string)   => `batch:result:${jobId}:${labelId}`,
+  batchJob: (jobId: string) => `batch:job:${jobId}`,
+  labelResult: (jobId: string, labelId: string) => `batch:result:${jobId}:${labelId}`,
 };
 
 // Atomically find and update one label inside a BatchJob, recount completedLabels,
@@ -129,7 +129,13 @@ export async function updateBatchProgress(
     String(BATCH_TTL_SECONDS)
   ) as string | null;
   if (!raw) return null;
-  return JSON.parse(raw) as BatchJob;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch {
+    throw new Error(`Corrupt JSON from Lua script for job ${jobId}`);
+  }
+  const result = BatchJobSchema.safeParse(parsed);
+  if (!result.success) throw new Error(`Schema mismatch from Lua script for job ${jobId}: ${result.error.message}`);
+  return result.data;
 }
 
 // Writes the VerificationResult and updates the BatchJob in a single MULTI/EXEC
@@ -163,7 +169,13 @@ export async function recordLabelCompletion(
   const [evalErr, evalRaw] = results[1] as [Error | null, string | null];
   if (evalErr) throw evalErr;
   if (!evalRaw) return null;
-  return JSON.parse(evalRaw) as BatchJob;
+  let parsedRaw: unknown;
+  try { parsedRaw = JSON.parse(evalRaw); } catch {
+    throw new Error(`Corrupt JSON from Lua script for job ${jobId}`);
+  }
+  const jobResult = BatchJobSchema.safeParse(parsedRaw);
+  if (!jobResult.success) throw new Error(`Schema mismatch from Lua script for job ${jobId}: ${jobResult.error.message}`);
+  return jobResult.data;
 }
 
 export default redis;
