@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { FieldResult, LabelApplication, OverallStatus, VerificationResult } from '../types/index';
-import { callClaudeVision, type ImageMediaType } from './claude';
+import { callClaudeVision, preflightImageCheck, type ImageMediaType } from './claude';
 import { GOVERNMENT_WARNING } from '../constants/warnings';
+import { TTB_REQUIREMENTS } from '../constants/requirements';
 
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
@@ -86,11 +87,34 @@ export async function verifyLabel(
 ): Promise<VerificationResult> {
   const start = Date.now();
 
-  const raw = await callClaudeVision(imageBase64, mediaType, application, SYSTEM_PROMPT, signal);
-  const parsed = tryParse(raw);
+  // Run preflight and verification in parallel — eliminates sequential haiku overhead
+  // and prevents haiku false-negatives from blocking the sonnet verification
+  const [preflight, raw] = await Promise.all([
+    preflightImageCheck(imageBase64, mediaType, signal),
+    callClaudeVision(imageBase64, mediaType, application, SYSTEM_PROMPT, signal),
+  ]);
 
+  // Annotate with quality warning without blocking — haiku opinion doesn't gate sonnet
+  const annotate = (fields: FieldResult[]): FieldResult[] => {
+    if (preflight.readable) return fields;
+    return [
+      {
+        fieldName: 'imageQuality',
+        expectedValue: 'Clear, readable label image',
+        foundValue: null,
+        status: 'warning',
+        notes: preflight.issues.length > 0
+          ? `Image quality may affect accuracy: ${preflight.issues.join('; ')}`
+          : 'Image quality may affect accuracy',
+      },
+      ...fields,
+    ];
+  };
+
+  const parsed = tryParse(raw);
   if (parsed) {
-    return { ...parsed, overallStatus: deriveOverallStatus(parsed.fields), processingTimeMs: Date.now() - start };
+    const fields = annotate(parsed.fields);
+    return { ...parsed, fields, overallStatus: deriveOverallStatus(fields), processingTimeMs: Date.now() - start };
   }
 
   if (signal?.aborted) {
@@ -103,7 +127,8 @@ export async function verifyLabel(
   const parsedRetry = tryParse(rawRetry);
 
   if (parsedRetry) {
-    return { ...parsedRetry, overallStatus: deriveOverallStatus(parsedRetry.fields), processingTimeMs: Date.now() - start };
+    const fields = annotate(parsedRetry.fields);
+    return { ...parsedRetry, fields, overallStatus: deriveOverallStatus(fields), processingTimeMs: Date.now() - start };
   }
 
   throw new Error(

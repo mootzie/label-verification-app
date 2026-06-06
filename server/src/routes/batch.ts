@@ -56,38 +56,25 @@ router.post('/upload', batchUploadLimiter, withMulter, async (req: Request, res:
       return res.status(400).json({ error: 'At least one image file is required' });
     }
 
-    if (!req.body.applications) {
-      return res.status(400).json({ error: 'Application data array is required' });
+    if (!req.body.application) {
+      return res.status(400).json({ error: 'Application data is required' });
     }
 
-    let rawApplications: unknown;
+    let rawApplication: unknown;
     try {
-      rawApplications = JSON.parse(req.body.applications as string);
+      rawApplication = JSON.parse(req.body.application as string);
     } catch {
-      return res.status(400).json({ error: 'Applications must be valid JSON' });
+      return res.status(400).json({ error: 'Application data must be valid JSON' });
     }
 
-    if (!Array.isArray(rawApplications)) {
-      return res.status(400).json({ error: 'Applications must be a JSON array' });
-    }
-
-    if (rawApplications.length !== files.length) {
+    const applicationResult = LabelApplicationSchema.safeParse(rawApplication);
+    if (!applicationResult.success) {
       return res.status(400).json({
-        error: `applications array length (${rawApplications.length}) must match number of uploaded files (${files.length})`,
+        error: 'Invalid application data',
+        details: applicationResult.error.flatten().fieldErrors,
       });
     }
-
-    const applications: z.infer<typeof LabelApplicationSchema>[] = [];
-    for (let i = 0; i < rawApplications.length; i++) {
-      const result = LabelApplicationSchema.safeParse(rawApplications[i]);
-      if (!result.success) {
-        return res.status(400).json({
-          error: `Invalid application data at index ${i}`,
-          details: result.error.flatten().fieldErrors,
-        });
-      }
-      applications.push(result.data);
-    }
+    const application = applicationResult.data;
 
     const jobId = crypto.randomUUID();
     const now = Date.now();
@@ -114,7 +101,7 @@ router.post('/upload', batchUploadLimiter, withMulter, async (req: Request, res:
       filename: file.originalname,
       imageBase64: file.buffer.toString('base64'),
       mediaType: file.mimetype as ImageMediaType,
-      application: applications[i],
+      application,
     }));
 
     // Kick off processing in background — do not await
