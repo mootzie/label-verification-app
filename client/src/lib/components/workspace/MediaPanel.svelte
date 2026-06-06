@@ -18,6 +18,7 @@
         onSelectFile,
         onRemoveFile,
         onDropZoneKeydown,
+        onUseSingleFile,
     }: {
         files: File[]
         imagePreviewUrl: string | null
@@ -28,6 +29,7 @@
         onSelectFile: (i: number) => void
         onRemoveFile: (i: number) => void
         onDropZoneKeydown: (e: KeyboardEvent) => void
+        onUseSingleFile: () => void
     } = $props()
 
     let isHovering = $state(false)
@@ -41,17 +43,15 @@
     }
 </script>
 
-<div class="lg:sticky lg:top-6 min-w-0">
-    <Card>
+<div class="min-w-0 h-full">
+    <Card class="h-full flex flex-col shadow-md">
         <CardHeader class="py-4">
-            <CardTitle class="text-base font-semibold">Label Media</CardTitle>
+            <CardTitle class="text-xl font-semibold">Label Media</CardTitle>
         </CardHeader>
-        <CardContent class="p-4 min-w-0">
-            <div
-                class="mb-4 rounded-md bg-blue-50/50 px-3 py-2 text-center text-xs text-blue-600 border border-blue-100/50"
-            >
-                Tip: You can drag and drop files anywhere on this page
-            </div>
+        <CardContent class="p-4 min-w-0 flex flex-col flex-1">
+            <p class="mb-3 text-center text-xs text-gray-400">
+                Drag and drop files anywhere on this page
+            </p>
             <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -62,9 +62,9 @@
             />
 
             {#if files.length > 0 && imagePreviewUrl}
-                <div class="flex flex-col gap-4 min-w-0">
+                <div class="flex flex-col gap-4 min-w-0 flex-1">
                     <div
-                        class="relative h-[400px] lg:h-[calc(100vh-36rem)] w-full overflow-hidden rounded-lg border bg-gray-50 cursor-crosshair shadow-inner"
+                        class="relative flex-1 min-h-[220px] w-full overflow-hidden rounded-lg border bg-gray-50 cursor-crosshair shadow-inner"
                         role="region"
                         onmouseenter={() => (isHovering = true)}
                         onmouseleave={() => (isHovering = false)}
@@ -118,20 +118,60 @@
                         </div>
                     {/if}
                     <div class="flex items-center justify-between px-1">
-                        <p
-                            class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold"
-                        >
-                            {files.length === 1
-                                ? 'Single Unit'
-                                : `${files.length} Unit Batch`}
-                        </p>
+                        {#if files.length > 1}
+                            <div class="flex flex-col gap-1">
+                                <span
+                                    class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700"
+                                >
+                                    <svg
+                                        class="h-3.5 w-3.5 shrink-0"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        aria-hidden="true"
+                                        ><rect
+                                            x="2"
+                                            y="7"
+                                            width="20"
+                                            height="14"
+                                            rx="2"
+                                        /><path
+                                            d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"
+                                        /><line
+                                            x1="12"
+                                            y1="12"
+                                            x2="12"
+                                            y2="17"
+                                        /><line
+                                            x1="9"
+                                            y1="14.5"
+                                            x2="15"
+                                            y2="14.5"
+                                        /></svg
+                                    >
+                                    Batch Mode — {files.length} labels
+                                </span>
+                                <button
+                                    type="button"
+                                    class="text-left text-xs text-gray-500 hover:text-blue-600 hover:underline px-1"
+                                    onclick={onUseSingleFile}
+                                    >← Use first file only</button
+                                >
+                            </div>
+                        {:else}
+                            <span
+                                class="text-xs text-gray-500 uppercase tracking-widest font-semibold"
+                                >Single Label</span
+                            >
+                        {/if}
                         <button
                             type="button"
                             class="text-xs text-blue-600 hover:underline font-medium"
                             onclick={() =>
                                 document
                                     .getElementById('file-input-el')
-                                    ?.click()}>Change Media</button
+                                    ?.click()}>Change files</button
                         >
                     </div>
                 </div>
@@ -140,7 +180,7 @@
                 <div
                     role="button"
                     tabindex="0"
-                    class="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 p-12 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30"
+                    class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 p-12 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30"
                     onclick={() =>
                         document.getElementById('file-input-el')?.click()}
                     onkeydown={onDropZoneKeydown}
@@ -165,9 +205,7 @@
                         <p class="text-sm font-semibold text-gray-700">
                             Add Label Images
                         </p>
-                        <p
-                            class="mt-1 text-[10px] text-gray-400 tracking-wider"
-                        >
+                        <p class="mt-1 text-xs text-gray-500 tracking-wider">
                             JPEG, PNG, WebP supported
                         </p>
                     </div>

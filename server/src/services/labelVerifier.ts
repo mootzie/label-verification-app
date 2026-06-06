@@ -54,7 +54,7 @@ alcoholContent: Compare numeric value only. "45%", "45% Alc./Vol.", and "45% Alc
 
 governmentWarning: The label must contain this exact text:
 ${GOVERNMENT_WARNING}
-"GOVERNMENT WARNING:" must appear in all caps. Any deviation, truncation, or omission → "fail".
+"GOVERNMENT WARNING:" must appear in all capital letters. Any deviation in capitalization is a fail. Bold formatting is not required by regulation. Any truncation or omission → "fail".
 
 All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". Only verify optional fields if present in the application data.
 

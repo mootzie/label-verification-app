@@ -28,10 +28,11 @@ export async function callClaudeVision(
 ): Promise<string> {
   const data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
+  const t0 = Date.now()
   const response = await client.messages.create(
     {
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
       ...(systemPrompt ? { system: systemPrompt } : {}),
       messages: [
         {
@@ -56,6 +57,7 @@ export async function callClaudeVision(
     { signal },
   );
 
+  console.log(`[claude] sonnet vision: ${Date.now() - t0}ms`)
   const block = response.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") {
     throw new Error("Claude returned no text content");

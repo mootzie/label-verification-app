@@ -3,6 +3,6 @@
   interface Props { class?: string; children?: import('svelte').Snippet; }
   let { class: className = '', children }: Props = $props();
 </script>
-<div class={cn('rounded-lg border border-gray-200 bg-white shadow-sm', className)}>
+<div class={cn('rounded-lg border border-gray-300 bg-white shadow-sm', className)}>
   {@render children?.()}
 </div>

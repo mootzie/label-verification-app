@@ -8,7 +8,7 @@ const config = {
         inspector: {
             toggleKeyCombo: 'meta-alt',
             holdMode: true,
-            showToggleButton: 'always',
+            // showToggleButton: 'always',
             toggleButtonPos: 'top-right',
         },
     },

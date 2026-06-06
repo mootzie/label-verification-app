@@ -7,7 +7,7 @@ import type { ImageMediaType } from "./claude";
 import { verifyLabel } from "./labelVerifier";
 import { recordLabelCompletion } from "./redis";
 
-const MAX_CONCURRENT = 3;
+const MAX_CONCURRENT = 5; // raise if Anthropic rate limits hit; lower for free-tier keys
 
 interface LabelInput {
   labelId: string;

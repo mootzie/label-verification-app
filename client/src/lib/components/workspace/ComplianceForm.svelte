@@ -1,10 +1,23 @@
 <script lang="ts">
-    import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-    import { Badge } from '$lib/components/ui/badge';
-    import { Button } from '$lib/components/ui/button';
-    import { OVERALL_LABEL, borderCls } from '$lib/utils/compliance-logic';
-    import FieldFeedback from './FieldFeedback.svelte';
-    import type { VerificationResult, BatchLabelItem, FieldResult } from '$shared/index';
+    import {
+        Card,
+        CardContent,
+        CardHeader,
+        CardTitle,
+    } from '$lib/components/ui/card'
+    import { Badge } from '$lib/components/ui/badge'
+    import { Button } from '$lib/components/ui/button'
+    import {
+        OVERALL_LABEL,
+        borderCls,
+        formatFieldName,
+    } from '$lib/utils/compliance-logic'
+    import FieldFeedback from './FieldFeedback.svelte'
+    import type {
+        VerificationResult,
+        BatchLabelItem,
+        FieldResult,
+    } from '$shared/index'
 
     let {
         brandName = $bindable(),
@@ -27,202 +40,765 @@
         fieldResultMap,
         onToggleLock,
         onSubmit,
-        statusIcon
+        statusIcon,
     }: {
-        brandName: string,
-        producerName: string,
-        beverageType: string,
-        classType: string,
-        producerAddress: string,
-        countryOfOrigin: string,
-        alcoholContent: string,
-        netContents: string,
-        locked: Set<string>,
-        result: VerificationResult | null,
-        jobId: string | null,
-        loading: boolean,
-        submitting: boolean,
-        files: File[],
-        brandHistory: string[],
-        producerHistory: string[],
-        addressHistory: string[],
-        fieldResultMap: Map<string, FieldResult>,
-        onToggleLock: (field: string) => void,
-        onSubmit: (e: Event) => void,
-        statusIcon: any // Snippet
-    } = $props();
+        brandName: string
+        producerName: string
+        beverageType: string
+        classType: string
+        producerAddress: string
+        countryOfOrigin: string
+        alcoholContent: string
+        netContents: string
+        locked: Set<string>
+        result: VerificationResult | null
+        jobId: string | null
+        loading: boolean
+        submitting: boolean
+        files: File[]
+        brandHistory: string[]
+        producerHistory: string[]
+        addressHistory: string[]
+        fieldResultMap: Map<string, FieldResult>
+        onToggleLock: (field: string) => void
+        onSubmit: (e: Event) => void
+        statusIcon: any
+    } = $props()
 
-    const INPUT_BASE = 'w-full rounded-md border px-3 h-11 text-base text-gray-900 focus:outline-none focus:ring-1 transition-colors';
-    
+    const INPUT_BASE =
+        'w-full rounded-md border px-3 h-11 text-base text-gray-900 focus:outline-none focus:ring-1 transition-colors'
+    const primaryFields = [
+        'brandName',
+        'beverageType',
+        'classType',
+        'alcoholContent',
+        'netContents',
+        'producerName',
+        'producerAddress',
+        'countryOfOrigin',
+    ]
+
+    // Field was checked by Claude and passed
+    function isPass(fieldName: string) {
+        return (
+            result !== null && fieldResultMap.get(fieldName)?.status === 'pass'
+        )
+    }
+    // Field exists in form but Claude didn't return a result for it (e.g. beverageType)
+    function isUnchecked(fieldName: string) {
+        return result !== null && !fieldResultMap.has(fieldName)
+    }
+    // Field is empty and unchecked — hide it in results mode (e.g. unused countryOfOrigin)
+    function shouldHide(fieldName: string, value: string) {
+        return (
+            result !== null &&
+            value.trim() === '' &&
+            !fieldResultMap.has(fieldName)
+        )
+    }
+    // Truncate long Claude notes to keep them scannable
+    function truncNote(notes: string | null | undefined, max = 110): string {
+        if (!notes) return ''
+        return notes.length > max ? notes.slice(0, max).trimEnd() + '…' : notes
+    }
+
     let canSubmit = $derived(
         files.length > 0 &&
-        brandName.trim() !== '' &&
-        beverageType !== '' &&
-        classType.trim() !== '' &&
-        alcoholContent.trim() !== '' &&
-        netContents.trim() !== '' &&
-        producerName.trim() !== '' &&
-        producerAddress.trim() !== '' &&
-        !loading && !submitting && jobId === null
-    );
+            brandName.trim() !== '' &&
+            beverageType !== '' &&
+            classType.trim() !== '' &&
+            alcoholContent.trim() !== '' &&
+            netContents.trim() !== '' &&
+            producerName.trim() !== '' &&
+            producerAddress.trim() !== '' &&
+            !loading &&
+            !submitting &&
+            jobId === null
+    )
+
+    function getOS() {
+        // 1. Check the modern User-Agent Client Hints API (Chromium-based browsers)
+        if (navigator.userAgentData && navigator.userAgentData.platform) {
+            const platform = navigator.userAgentData.platform.toLowerCase()
+            if (platform.includes('windows')) return 'windows'
+            if (platform.includes('macos')) return 'mac'
+        }
+
+        // 2. Fallback to traditional User-Agent sniffing (Safari, Firefox, and older versions)
+        const userAgent = navigator.userAgent.toLowerCase()
+        if (userAgent.includes('win')) return 'windows'
+        if (userAgent.includes('mac')) return 'mac'
+
+        return 'unknown'
+    }
+
+    let os = getOS()
+
+    let showSubmitModal = $state(false)
+
+    function handleSubmitClick(e: Event) {
+        if (result?.overallStatus === 'pass') {
+            e.preventDefault()
+            showSubmitModal = true
+            setTimeout(() => {
+                showSubmitModal = false
+            }, 1800)
+        }
+    }
 </script>
 
-<form onsubmit={onSubmit}>
-    <Card class="overflow-hidden border-gray-200 transition-all {result ? 'shadow-md ring-1 ring-black/5' : 'shadow-sm'}">
-        <CardHeader class="py-5 bg-gray-50/50 border-b">
-            <div class="flex items-center justify-between gap-4">
-                <div class="flex flex-col gap-1">
-                    <CardTitle class="text-lg font-semibold">Compliance Workspace</CardTitle>
-                    {#if result}
-                        <p class="text-xs text-gray-400">Scan duration: {result.processingTimeMs}ms</p>
-                    {:else}
-                        <p class="text-xs text-gray-400 font-medium">Verify COLA Specification</p>
-                    {/if}
+<!-- Compact pass row for primary fields -->
+{#snippet passRow(label: string, fieldName: string)}
+    {@const fr = fieldResultMap.get(fieldName)}
+    <div
+        class="flex items-center justify-between rounded-md border border-green-100 bg-green-50/20 px-3 py-2.5 gap-3 min-w-0"
+    >
+        <span class="text-sm font-semibold text-gray-600 shrink-0">{label}</span
+        >
+        <div class="flex items-center gap-2 min-w-0">
+            <span class="text-xs text-gray-500 truncate"
+                >{fr?.foundValue ?? '—'}</span
+            >
+            <svg
+                class="h-4 w-4 text-green-600 shrink-0"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                ><path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                    clip-rule="evenodd"
+                /></svg
+            >
+        </div>
+    </div>
+{/snippet}
 
+<!-- Neutral row: Claude used this field as context but didn't verify it against the label -->
+{#snippet neutralRow(label: string, value: string)}
+    <div
+        class="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50/40 px-3 py-2.5 gap-3 min-w-0"
+    >
+        <span class="text-sm font-semibold text-gray-600 shrink-0">{label}</span
+        >
+        <span class="text-xs text-gray-400 capitalize"
+            >{value.replace(/_/g, ' ')}</span
+        >
+    </div>
+{/snippet}
+
+<!-- Status badge inline with a field label -->
+{#snippet fieldBadge(fieldName: string)}
+    {@const fr = fieldResultMap.get(fieldName)}
+    {#if fr && fr.status !== 'pass'}
+        <Badge variant={fr.status} class="text-xs font-bold"
+            >{fr.status.replace('_', ' ')}</Badge
+        >
+    {/if}
+{/snippet}
+
+<form onsubmit={onSubmit} autocomplete="off" class="flex flex-col">
+    <Card
+        class="border-gray-200 transition-all shadow-lg h-full {result
+            ? 'ring-1 ring-black/5'
+            : ''}"
+    >
+        <CardHeader class="py-5 border-b border-gray-200">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col gap-1.5">
+                    <CardTitle class="text-xl font-semibold"
+                        >Label Verification</CardTitle
+                    >
+                    {#if result}
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs font-semibold text-green-700">
+                                {result.fields.filter(
+                                    (f) => f.status === 'pass'
+                                ).length} passed
+                            </span>
+                            <span class="text-gray-300">·</span>
+                            <span class="text-xs font-semibold text-amber-600">
+                                {result.fields.filter(
+                                    (f) => f.status === 'warning'
+                                ).length} warnings
+                            </span>
+                            <span class="text-gray-300">·</span>
+                            <span class="text-xs font-semibold text-red-600">
+                                {result.fields.filter(
+                                    (f) =>
+                                        f.status === 'fail' ||
+                                        f.status === 'not_found'
+                                ).length} failed
+                            </span>
+                            <span class="text-gray-300">·</span>
+                            <span class="text-xs text-gray-400"
+                                >{result.processingTimeMs}ms</span
+                            >
+                        </div>
+                    {:else}
+                        <p class="text-sm text-gray-600 font-medium">
+                            Check label against TTB requirements
+                        </p>
+                    {/if}
                 </div>
                 {#if result}
-                    <div class="flex items-center gap-3">
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Result</span>
-                        <Badge variant={result.overallStatus} class="px-3 py-1 text-xs font-bold">
-                            {OVERALL_LABEL[result.overallStatus]}
-                        </Badge>
-                    </div>
+                    <Badge
+                        variant={result.overallStatus}
+                        class="px-3 py-1 text-xs font-bold shrink-0"
+                    >
+                        {OVERALL_LABEL[result.overallStatus]}
+                    </Badge>
                 {/if}
             </div>
         </CardHeader>
-        
-        <CardContent class="space-y-8 p-6 min-w-0 bg-white">
-            <div class="space-y-8">
-                <!-- Row 1: Brand & Producer Name -->
-                <p class="text-sm text-gray-600">
-                    <span class="text-red-500">*</span> Required · Applied to every image in the batch
-                </p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <label for="brandName" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Brand Name <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <div class="relative">
-                            <input id="brandName" type="text" bind:value={brandName} list="brands-list" autocomplete="off" disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'brandName')}" />
-                            {@render statusIcon('brandName')}
-                        </div>
-                        <FieldFeedback fr={fieldResultMap.get('brandName')} />
-                    </div>
-                    <div>
-                        <div class="mb-1.5 flex items-center justify-between h-6">
-                            <label for="producerName" class="font-semibold text-gray-700 tracking-tight">Producer Name <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                            <button type="button" class="rounded p-1 {locked.has('producerName') ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}" onclick={() => onToggleLock('producerName')} aria-label="Lock"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></button>
-                        </div>
-                        <div class="relative">
-                            <input id="producerName" type="text" bind:value={producerName} list="producers-list" autocomplete="off" disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'producerName')}" />
-                            {@render statusIcon('producerName')}
-                        </div>
-                        <FieldFeedback fr={fieldResultMap.get('producerName')} />
-                    </div>
-                </div>
-
-                <!-- Row 2: Beverage Type & Class/Type -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="space-y-1">
-                        <label for="beverageType" class="font-semibold text-gray-700 tracking-tight">Beverage Type <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <select id="beverageType" bind:value={beverageType} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'beverageType')}">
-                            <option value="">Select type</option>
-                            <option value="beer">Beer</option>
-                            <option value="wine">Wine</option>
-                            <option value="distilled_spirits">Distilled Spirits</option>
-                        </select>
-                        <FieldFeedback fr={fieldResultMap.get('beverageType')} />
-                    </div>
-                    <div>
-                        <label for="classType" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Class/Type <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <div class="relative">
-                            <input id="classType" type="text" placeholder="e.g. Bourbon Whiskey" bind:value={classType} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'classType')}" />
-                            {@render statusIcon('classType')}
-                        </div>
-                        <FieldFeedback fr={fieldResultMap.get('classType')} />
-                    </div>
-                </div>
-
-                <!-- Row 3: Producer Address -->
-                <div>
-                    <div class="mb-1.5 flex items-center justify-between h-6">
-                        <label for="producerAddress" class="font-semibold text-gray-700 tracking-tight">Producer Address <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <button type="button" class="rounded p-1 {locked.has('producerAddress') ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}" onclick={() => onToggleLock('producerAddress')} aria-label="Lock"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></button>
-                    </div>
-                    <div class="relative">
-                        <input id="producerAddress" type="text" bind:value={producerAddress} list="addresses-list" autocomplete="off" disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'producerAddress')}" />
-                        {@render statusIcon('producerAddress')}
-                    </div>
-                    <FieldFeedback fr={fieldResultMap.get('producerAddress')} />
-                </div>
-
-                <!-- Country of Origin (optional) -->
-                <div>
-                    <label for="countryOfOrigin" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Country of Origin <span class="ml-1.5 text-xs font-normal text-gray-400">Required for imported products</span></label>
-                    <div class="relative">
-                        <input id="countryOfOrigin" type="text" placeholder="e.g. France" bind:value={countryOfOrigin} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'countryOfOrigin')}" />
-                        {@render statusIcon('countryOfOrigin')}
-                    </div>
-                    <FieldFeedback fr={fieldResultMap.get('countryOfOrigin')} />
-                </div>
-
-                <!-- Row 4: Alcohol & Net Contents -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <label for="alcoholContent" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Alcohol Content <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <div class="relative">
-                            <input id="alcoholContent" type="text" placeholder="e.g. 12.5%" bind:value={alcoholContent} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'alcoholContent')}" />
-                            {@render statusIcon('alcoholContent')}
-                        </div>
-                        <FieldFeedback fr={fieldResultMap.get('alcoholContent')} />
-                    </div>
-                    <div>
-                        <label for="netContents" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Net Contents <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                        <div class="relative">
-                            <input id="netContents" type="text" placeholder="e.g. 750 mL" bind:value={netContents} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'netContents')}" />
-                            {@render statusIcon('netContents')}
-                        </div>
-                        <FieldFeedback fr={fieldResultMap.get('netContents')} />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Automatic / Background Field Failures -->
+        <CardContent class="p-6 min-w-0 bg-white">
+            <!-- ── Automatic checks (government warning, state of distillation, etc.)  -->
+            <!-- Shown at top so agent sees auto-detected issues immediately             -->
             {#if result}
-                {@const primaryFields = ['brandName', 'beverageType', 'classType', 'alcoholContent', 'netContents', 'producerName', 'producerAddress', 'countryOfOrigin']}
-                {@const autoFailures = result.fields.filter(f => !primaryFields.includes(f.fieldName) && f.status !== 'pass')}
-                
-                {#if autoFailures.length > 0}
-                    <div class="mt-8 space-y-4 border-t border-gray-100 pt-6">
-                        <div class="flex items-center gap-2">
-                            <svg class="h-4 w-4 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" /></svg>
-                            <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider">System-Verified Failures</h3>
-                        </div>
-                        <div class="grid grid-cols-1 gap-4">
-                            {#each autoFailures as fr}
-                                <div class="rounded-lg border border-red-100 bg-red-50/30 p-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm font-bold text-gray-900">{fr.fieldName.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                                        <Badge variant={fr.status} class="text-[10px] font-bold uppercase">{fr.status}</Badge>
+                {@const autoChecks = result.fields.filter(
+                    (f) => !primaryFields.includes(f.fieldName)
+                )}
+                {#if autoChecks.length > 0}
+                    <div class="mb-5 space-y-2">
+                        <p
+                            class="text-xs font-bold uppercase tracking-wider text-gray-400"
+                        >
+                            Automatic Checks
+                        </p>
+                        {#each autoChecks as fr}
+                            {#if fr.status === 'pass'}
+                                <div
+                                    class="flex items-center justify-between rounded-md border border-green-100 bg-green-50/20 px-3 py-2.5 gap-3"
+                                >
+                                    <span
+                                        class="text-sm font-semibold text-gray-600"
+                                        >{formatFieldName(fr.fieldName)}</span
+                                    >
+                                    <div
+                                        class="flex items-center gap-2 min-w-0"
+                                    >
+                                        <span
+                                            class="text-xs text-gray-500 truncate max-w-[200px]"
+                                            >{fr.foundValue ?? '—'}</span
+                                        >
+                                        <svg
+                                            class="h-4 w-4 text-green-600 shrink-0"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            ><path
+                                                fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                                clip-rule="evenodd"
+                                            /></svg
+                                        >
                                     </div>
-                                    <FieldFeedback {fr} />
                                 </div>
-                            {/each}
-                        </div>
+                            {:else}
+                                <div
+                                    class="rounded-lg border-l-4 {fr.status ===
+                                    'warning'
+                                        ? 'border-l-amber-400 border border-amber-200 bg-amber-50/30'
+                                        : 'border-l-red-500 border border-red-200 bg-red-50/30'} px-4 py-3 space-y-2"
+                                >
+                                    <div
+                                        class="flex items-center justify-between gap-2"
+                                    >
+                                        <span
+                                            class="text-sm font-bold text-gray-900"
+                                            >{formatFieldName(
+                                                fr.fieldName
+                                            )}</span
+                                        >
+                                        <Badge
+                                            variant={fr.status}
+                                            class="text-xs font-bold shrink-0"
+                                            >{fr.status.replace(
+                                                '_',
+                                                ' '
+                                            )}</Badge
+                                        >
+                                    </div>
+                                    {#if fr.foundValue}
+                                        <div
+                                            class="grid grid-cols-[min-content_1fr] gap-2 text-xs"
+                                        >
+                                            <span
+                                                class="font-bold uppercase tracking-wide text-gray-500 w-12 shrink-0"
+                                                >Found</span
+                                            >
+                                            <span
+                                                class="text-gray-800 font-medium"
+                                                >{fr.foundValue}</span
+                                            >
+                                        </div>
+                                    {/if}
+                                    {#if fr.notes}
+                                        <div
+                                            class="flex gap-2 text-xs border-t border-gray-200/60 pt-2"
+                                        >
+                                            <span
+                                                class="font-bold uppercase tracking-wide text-gray-500 w-12 shrink-0"
+                                                >Why</span
+                                            >
+                                            <span class="text-gray-700"
+                                                >{truncNote(fr.notes)}</span
+                                            >
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/if}
+                        {/each}
                     </div>
+                    <div class="border-t border-gray-100 mb-5"></div>
                 {/if}
             {/if}
 
-            {#if !jobId && !result}
-                <div class="pt-6 border-t border-gray-100">
-                    <Button type="submit" disabled={!canSubmit} class="w-full h-12 text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px]">
-                        {#if loading || submitting}
-                            <svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>Executing Analysis…
-                        {:else}
-                            Run Compliance Check {#if files.length > 0}({files.length} Unit{files.length !== 1 ? 's' : ''}){/if}
-                        {/if}
-                    </Button>
+            <!-- ── Form fields ──────────────────────────────────────────────────────── -->
+            <div class={result ? 'space-y-3' : 'space-y-8'}>
+                {#if !result}
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm text-gray-600">
+                            <span class="text-red-500">*</span> Required
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            Press
+                            <kbd
+                                class="rounded border border-gray-200 bg-gray-100 px-1 py-0.5 font-mono text-xs"
+                            >
+                                {#if os === 'mac'}
+                                    ⌘ + V
+                                {:else}
+                                    Ctrl + V
+                                {/if}
+                            </kbd>
+                            to paste application data
+                        </p>
+                    </div>
+                {/if}
+
+                <!-- Brand Name + Producer Name -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-2 {result
+                        ? 'gap-3'
+                        : 'gap-8'}"
+                >
+                    {#if isPass('brandName')}
+                        {@render passRow('Brand Name', 'brandName')}
+                    {:else}
+                        <div>
+                            <div class="mb-1.5 flex items-center gap-2">
+                                <label
+                                    for="brandName"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Brand Name <span
+                                        class="text-red-500 px-0.5 font-semibold"
+                                        >*</span
+                                    ></label
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'brandName'
+                                    )}{/if}
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="brandName"
+                                    type="text"
+                                    bind:value={brandName}
+                                    list="brands-list"
+                                    autocomplete="off"
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'brandName'
+                                    )}"
+                                />
+                                {@render statusIcon('brandName')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('brandName')}
+                                />{/if}
+                        </div>
+                    {/if}
+
+                    {#if isPass('producerName')}
+                        {@render passRow('Producer Name', 'producerName')}
+                    {:else}
+                        <div>
+                            <div
+                                class="mb-1.5 flex items-center justify-between"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <label
+                                        for="producerName"
+                                        class="font-semibold text-gray-800 tracking-tight"
+                                        >Producer Name <span
+                                            class="text-red-500 px-0.5 font-semibold"
+                                            >*</span
+                                        ></label
+                                    >
+                                    {#if result}{@render fieldBadge(
+                                            'producerName'
+                                        )}{/if}
+                                </div>
+                                <label
+                                    class="flex items-center gap-1.5 cursor-pointer select-none text-xs text-gray-500"
+                                    ><input
+                                        type="checkbox"
+                                        checked={locked.has('producerName')}
+                                        onchange={() =>
+                                            onToggleLock('producerName')}
+                                        class="h-3.5 w-3.5 rounded border-gray-300"
+                                    /> Keep</label
+                                >
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="producerName"
+                                    type="text"
+                                    bind:value={producerName}
+                                    list="producers-list"
+                                    autocomplete="off"
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'producerName'
+                                    )}"
+                                />
+                                {@render statusIcon('producerName')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('producerName')}
+                                />{/if}
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Beverage Type + Class/Type -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-2 {result
+                        ? 'gap-3'
+                        : 'gap-8'}"
+                >
+                    <!-- Beverage type: Claude uses it as context but doesn't verify it against the label -->
+                    {#if result}
+                        {@render neutralRow('Beverage Type', beverageType)}
+                    {:else}
+                        <div>
+                            <label
+                                for="beverageType"
+                                class="mb-1.5 block font-semibold text-gray-800 tracking-tight"
+                                >Beverage Type <span
+                                    class="text-red-500 px-0.5 font-semibold"
+                                    >*</span
+                                ></label
+                            >
+                            <select
+                                id="beverageType"
+                                bind:value={beverageType}
+                                disabled={!!jobId || loading}
+                                class="{INPUT_BASE} {borderCls(
+                                    fieldResultMap,
+                                    'beverageType'
+                                )}"
+                            >
+                                <option value="">Select type</option>
+                                <option value="beer">Beer</option>
+                                <option value="wine">Wine</option>
+                                <option value="distilled_spirits"
+                                    >Distilled Spirits</option
+                                >
+                            </select>
+                        </div>
+                    {/if}
+
+                    {#if isPass('classType')}
+                        {@render passRow('Class / Type', 'classType')}
+                    {:else}
+                        <div>
+                            <div class="mb-1.5 flex items-center gap-2">
+                                <label
+                                    for="classType"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Class / Type <span
+                                        class="text-red-500 px-0.5 font-semibold"
+                                        >*</span
+                                    ></label
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'classType'
+                                    )}{/if}
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="classType"
+                                    type="text"
+                                    placeholder="e.g. Bourbon Whiskey"
+                                    bind:value={classType}
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'classType'
+                                    )}"
+                                />
+                                {@render statusIcon('classType')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('classType')}
+                                />{/if}
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Producer Address -->
+                {#if isPass('producerAddress')}
+                    {@render passRow('Producer Address', 'producerAddress')}
+                {:else}
+                    <div>
+                        <div class="mb-1.5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <label
+                                    for="producerAddress"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Producer Address <span
+                                        class="text-red-500 px-0.5 font-semibold"
+                                        >*</span
+                                    ></label
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'producerAddress'
+                                    )}{/if}
+                            </div>
+                            <label
+                                class="flex items-center gap-1.5 cursor-pointer select-none text-xs text-gray-500"
+                                ><input
+                                    type="checkbox"
+                                    checked={locked.has('producerAddress')}
+                                    onchange={() =>
+                                        onToggleLock('producerAddress')}
+                                    class="h-3.5 w-3.5 rounded border-gray-300"
+                                /> Keep</label
+                            >
+                        </div>
+                        <div class="relative">
+                            <input
+                                id="producerAddress"
+                                type="text"
+                                bind:value={producerAddress}
+                                list="addresses-list"
+                                autocomplete="off"
+                                disabled={!!jobId || loading}
+                                class="{INPUT_BASE} {borderCls(
+                                    fieldResultMap,
+                                    'producerAddress'
+                                )}"
+                            />
+                            {@render statusIcon('producerAddress')}
+                        </div>
+                        {#if result}<FieldFeedback
+                                fr={fieldResultMap.get('producerAddress')}
+                            />{/if}
+                    </div>
+                {/if}
+
+                <!-- Country of Origin: hide when blank and not in results -->
+                {#if !shouldHide('countryOfOrigin', countryOfOrigin)}
+                    {#if isPass('countryOfOrigin')}
+                        {@render passRow(
+                            'Country of Origin',
+                            'countryOfOrigin'
+                        )}
+                    {:else}
+                        <div>
+                            <div class="mb-1.5 flex items-center gap-2">
+                                <label
+                                    for="countryOfOrigin"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Country of Origin</label
+                                >
+                                <span class="text-xs font-normal text-gray-500"
+                                    >Required for imported products</span
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'countryOfOrigin'
+                                    )}{/if}
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="countryOfOrigin"
+                                    type="text"
+                                    placeholder="e.g. France"
+                                    bind:value={countryOfOrigin}
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'countryOfOrigin'
+                                    )}"
+                                />
+                                {@render statusIcon('countryOfOrigin')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('countryOfOrigin')}
+                                />{/if}
+                        </div>
+                    {/if}
+                {/if}
+
+                <!-- Alcohol Content + Net Contents -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-2 {result
+                        ? 'gap-3'
+                        : 'gap-8'}"
+                >
+                    {#if isPass('alcoholContent')}
+                        {@render passRow('Alcohol Content', 'alcoholContent')}
+                    {:else}
+                        <div>
+                            <div class="mb-1.5 flex items-center gap-2">
+                                <label
+                                    for="alcoholContent"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Alcohol Content <span
+                                        class="text-red-500 px-0.5 font-semibold"
+                                        >*</span
+                                    ></label
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'alcoholContent'
+                                    )}{/if}
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="alcoholContent"
+                                    type="text"
+                                    placeholder="e.g. 12.5%"
+                                    bind:value={alcoholContent}
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'alcoholContent'
+                                    )}"
+                                />
+                                {@render statusIcon('alcoholContent')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('alcoholContent')}
+                                />{/if}
+                        </div>
+                    {/if}
+
+                    {#if isPass('netContents')}
+                        {@render passRow('Net Contents', 'netContents')}
+                    {:else}
+                        <div>
+                            <div class="mb-1.5 flex items-center gap-2">
+                                <label
+                                    for="netContents"
+                                    class="font-semibold text-gray-800 tracking-tight"
+                                    >Net Contents <span
+                                        class="text-red-500 px-0.5 font-semibold"
+                                        >*</span
+                                    ></label
+                                >
+                                {#if result}{@render fieldBadge(
+                                        'netContents'
+                                    )}{/if}
+                            </div>
+                            <div class="relative">
+                                <input
+                                    id="netContents"
+                                    type="text"
+                                    placeholder="e.g. 750 mL"
+                                    bind:value={netContents}
+                                    disabled={!!jobId || loading}
+                                    class="{INPUT_BASE} {borderCls(
+                                        fieldResultMap,
+                                        'netContents'
+                                    )}"
+                                />
+                                {@render statusIcon('netContents')}
+                            </div>
+                            {#if result}<FieldFeedback
+                                    fr={fieldResultMap.get('netContents')}
+                                />{/if}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+
+            <!-- Submit button -->
+            {#if !jobId}
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    {#if result?.overallStatus === 'pass'}
+                        <Button
+                            type="button"
+                            onclick={handleSubmitClick}
+                            class="w-full h-12 text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px] bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            Submit to COLA System
+                        </Button>
+                    {:else}
+                        <Button
+                            type="submit"
+                            disabled={!canSubmit}
+                            class="w-full h-12 text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px]"
+                        >
+                            {#if loading || submitting}
+                                <svg
+                                    class="mr-2 h-4 w-4 animate-spin"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    ><circle
+                                        class="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        stroke-width="4"
+                                    ></circle><path
+                                        class="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                    ></path></svg
+                                >Verifying…
+                            {:else if result}
+                                Re-verify Label
+                            {:else if files.length > 1}
+                                Start Batch ({files.length} labels)
+                            {:else}
+                                Verify Label
+                            {/if}
+                        </Button>
+                    {/if}
                 </div>
             {/if}
         </CardContent>
     </Card>
 </form>
+
+<!-- COLA submission modal -->
+{#if showSubmitModal}
+    <div
+        role="presentation"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    >
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Submitted"
+            tabindex="-1"
+            class="flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-2xl"
+        >
+            <svg
+                class="h-12 w-12 text-green-600"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+            >
+                <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                    clip-rule="evenodd"
+                />
+            </svg>
+        </div>
+    </div>
+{/if}

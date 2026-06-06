@@ -16,10 +16,20 @@ export const TTB_REQUIREMENTS = {
     ],
     conditional: [
       { field: "countryOfOrigin", condition: "imported products only" },
-      { field: "statementOfAge", condition: "whisky aged under 4 years" },
+      {
+        field: "sulfiteDeclaration",
+        condition:
+          "required if product contains ≥10 ppm sulfur dioxide — must read 'Contains Sulfites' or equivalent — 27 CFR 5.63(c)(7)",
+      },
+      {
+        field: "statementOfAge",
+        condition:
+          "mandatory for whisky aged <4 years and grape brandy aged <2 years; also required whenever any age representation is made — 27 CFR 5.74",
+      },
       {
         field: "stateOfDistillation",
-        condition: "if not distilled in address state",
+        condition:
+          "if the label's stated distillation location differs from the producer address state, or if the label makes a state-specific claim (e.g. 'Distilled in Kentucky') that cannot be verified from the address alone — flag as warning for agent review",
       },
     ],
   },
@@ -41,6 +51,11 @@ export const TTB_REQUIREMENTS = {
         condition: "when varietal or vintage claim is made",
       },
       { field: "vintageYear", condition: "when vintage claim is made" },
+      {
+        field: "sulfiteDeclaration",
+        condition:
+          "required if product contains ≥10 ppm sulfur dioxide — must read 'Contains Sulfites' or equivalent — 27 CFR 4.32(e)",
+      },
     ],
   },
   beer: {
@@ -56,9 +71,15 @@ export const TTB_REQUIREMENTS = {
     conditional: [
       {
         field: "alcoholContent",
-        condition: "only if alcohol derived from added flavors",
+        condition:
+          "required only if alcohol is derived from added flavors or non-beverage ingredients (other than hops extract) — 27 CFR 7.63(a)(3)",
       },
       { field: "countryOfOrigin", condition: "imported products only" },
+      {
+        field: "sulfiteDeclaration",
+        condition:
+          "required if product contains ≥10 ppm sulfur dioxide — must read 'Contains Sulfites' or equivalent — 27 CFR 7.63(b)",
+      },
     ],
   },
 } as const;

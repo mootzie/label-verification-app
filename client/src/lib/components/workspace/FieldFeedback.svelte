@@ -1,22 +1,20 @@
 <script lang="ts">
-    import { fly } from 'svelte/transition';
     import type { FieldResult } from '$shared/index';
-
     let { fr }: { fr: FieldResult | undefined } = $props();
 </script>
 
 {#if fr && fr.status !== 'pass'}
-    <div class="mt-2 space-y-1 rounded border border-gray-100 bg-gray-50/50 p-2" in:fly={{ y: -4, duration: 150 }}>
-        <div class="flex items-center gap-2">
-            <span class="text-[10px] font-bold text-red-600">Observed</span>
-            <span class="text-sm text-gray-700">
-                {#if fr.foundValue}{fr.foundValue}{:else}not found{/if}
+    <div class="mt-2 rounded border border-gray-200 bg-white p-2.5 space-y-1.5">
+        <div class="flex items-start gap-2">
+            <span class="text-xs font-bold uppercase tracking-wide text-gray-500 shrink-0 mt-0.5">Found</span>
+            <span class="text-sm font-medium text-gray-900">
+                {#if fr.foundValue}{fr.foundValue}{:else}<em class="text-gray-400 font-normal">not found on label</em>{/if}
             </span>
         </div>
         {#if fr.notes}
-            <div class="flex items-start gap-2 border-t border-gray-100 pt-1 mt-1">
-                <span class="text-[10px] font-bold uppercase text-blue-600">Note</span>
-                <p class="text-xs text-gray-600 italic">"{fr.notes}"</p>
+            <div class="flex items-start gap-2 border-t border-gray-100 pt-1.5">
+                <span class="text-xs font-bold uppercase tracking-wide text-gray-500 shrink-0 mt-0.5">Why</span>
+                <p class="text-xs text-gray-700">{fr.notes}</p>
             </div>
         {/if}
     </div>

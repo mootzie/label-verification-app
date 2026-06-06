@@ -35,7 +35,7 @@ export const STATUS_BORDER: Record<string, string> = {
     pass: 'border-green-400 focus:border-green-500 focus:ring-green-500',
     warning: 'border-yellow-400 focus:border-yellow-500 focus:ring-yellow-500',
     fail: 'border-red-400 focus:border-red-500 focus:ring-red-500',
-    not_found: 'border-gray-300 focus:border-blue-500 focus:ring-blue-500',
+    not_found: 'border-gray-400 focus:border-blue-500 focus:ring-blue-500',
 }
 
 export function borderCls(
@@ -43,9 +43,9 @@ export function borderCls(
     fieldName: string
 ): string {
     const f = fieldResultMap.get(fieldName)
-    if (!f) return 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+    if (!f) return 'border-gray-400 focus:border-blue-500 focus:ring-blue-500'
     return (
         STATUS_BORDER[f.status] ??
-        'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+        'border-gray-400 focus:border-blue-500 focus:ring-blue-500'
     )
 }

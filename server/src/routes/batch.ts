@@ -185,7 +185,7 @@ router.get("/:jobId/stream", async (req: Request, res: Response) => {
       clearInterval(poller);
       res.end();
     }
-  }, 500);
+  }, 250);
 
   res.on("close", () => clearInterval(poller));
 });
