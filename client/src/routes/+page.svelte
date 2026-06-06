@@ -1,6 +1,7 @@
 <script lang="ts">
     import { browser } from '$app/environment'
     import { fly } from 'svelte/transition'
+    import { Tooltip } from '$lib/components/ui/tooltip'
     import type { VerificationResult, FieldResult, FieldStatus } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
@@ -113,6 +114,18 @@
     // ── Image handlers ────────────────────────────────────────────────────────────
     const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
+    // ── Zoom & Pan state (Hover Magnification) ───────────────────────────────────
+    let hoverScale = $state(2.5)
+    let isHovering = $state(false)
+    let zoomOrigin = $state('50% 50%')
+
+    function handleMouseMove(e: MouseEvent) {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const x = ((e.clientX - rect.left) / rect.width) * 100
+        const y = ((e.clientY - rect.top) / rect.height) * 100
+        zoomOrigin = `${x}% ${y}%`
+    }
+
     $effect(() => () => {
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     })
@@ -125,6 +138,7 @@
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
         imageFile = file
         imagePreviewUrl = URL.createObjectURL(file)
+        resetZoom()
         if (fileInputEl) fileInputEl.value = ''
         error = null
     }
@@ -352,15 +366,17 @@
     {#each addressHistory as h}<option value={h}></option>{/each}
 </datalist>
 
-<main class="mx-auto max-w-screen-2xl px-6 py-6">
+<main class="mx-auto max-w-[2200px] px-6 py-6">
     <nav class="mb-6 flex items-center justify-between border-b pb-4">
         <div class="flex gap-4">
             <a href="/" class="font-medium text-blue-600">Single Label</a>
             <a href="/batch" class="text-gray-600 hover:text-blue-600">Batch Upload</a>
         </div>
-        <Button type="button" variant="outline" size="sm" onclick={smartPaste}>
-            Paste from Clipboard
-        </Button>
+        <Tooltip text="Paste application data from clipboard">
+            <Button type="button" variant="outline" size="sm" onclick={smartPaste}>
+                Paste from Clipboard
+            </Button>
+        </Tooltip>
     </nav>
 
     <h1 class="mb-4 text-xl font-semibold">TTB Label Verification</h1>
@@ -370,8 +386,15 @@
         <!-- ── LEFT: Sticky image panel ───────────────────────────────────────────── -->
         <div class="sticky top-6">
             <Card>
-                <CardHeader><CardTitle>Label Image</CardTitle></CardHeader>
+                <CardHeader>
+                    <div class="flex items-center justify-between">
+                        <CardTitle>Label Image</CardTitle>
+                    </div>
+                </CardHeader>
                 <CardContent>
+                    <div class="mb-3 rounded bg-blue-50 px-3 py-2 text-center text-xs text-blue-700 border border-blue-100">
+                        Tip: You can drag and drop a file anywhere on this page to add it
+                    </div>
                     <input
                         bind:this={fileInputEl}
                         type="file"
@@ -383,17 +406,30 @@
 
                     {#if imagePreviewUrl}
                         <div class="flex flex-col items-center gap-3">
-                            <img
-                                src={imagePreviewUrl}
-                                alt="Label preview"
-                                class="max-h-[calc(100vh-16rem)] max-w-full rounded border object-contain"
-                            />
-                            <p class="text-sm text-gray-500">{imageFile?.name}</p>
-                            <button
-                                type="button"
-                                class="text-sm text-blue-600 hover:underline"
-                                onclick={() => fileInputEl?.click()}
-                            >Replace image</button>
+                            <div 
+                                class="relative h-[calc(100vh-20rem)] w-full overflow-hidden rounded border bg-gray-50 cursor-crosshair"
+                                onmouseenter={() => isHovering = true}
+                                onmouseleave={() => isHovering = false}
+                                onmousemove={handleMouseMove}
+                            >
+                                <img
+                                    src={imagePreviewUrl}
+                                    alt="Label preview"
+                                    class="absolute left-1/2 top-1/2 max-h-full max-w-full origin-center transition-transform duration-200 ease-out"
+                                    style="transform: translate(-50%, -50%) scale({isHovering ? hoverScale : 1}); transform-origin: {zoomOrigin};"
+                                    draggable="false"
+                                />
+                            </div>
+                            <div class="flex w-full items-center justify-between">
+                                <p class="text-xs text-gray-500">{imageFile?.name}</p>
+                                <Tooltip text="Select a different image">
+                                    <button
+                                        type="button"
+                                        class="text-xs text-blue-600 hover:underline"
+                                        onclick={() => fileInputEl?.click()}
+                                    >Replace image</button>
+                                </Tooltip>
+                            </div>
                         </div>
                     {:else}
                         <!-- svelte-ignore a11y_interactive_supports_focus -->
