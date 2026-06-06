@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.env
+.env.local
+*.tsbuildinfo
+CLAUDE.md
+HANDOFF.md
+notes.md
+readme.md
+TESTS.md
+
+# SvelteKit
+client/.svelte-kit/
+client/build/
+
+# Server build
+server/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
