@@ -29,10 +29,12 @@
 
     let brandName = $state('');
     let beverageType = $state<'beer' | 'wine' | 'distilled_spirits' | ''>('');
+    let classType = $state('');
     let alcoholContent = $state('');
     let netContents = $state('');
     let producerName = $state('');
     let producerAddress = $state('');
+    let countryOfOrigin = $state('');
     
     let locked = $state(new Set<string>());
     
@@ -128,7 +130,7 @@
     function clearAll() {
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
         files = []; imagePreviewUrl = null; selectedFileIndex = null;
-        brandName = ''; beverageType = ''; alcoholContent = ''; netContents = '';
+        brandName = ''; beverageType = ''; classType = ''; countryOfOrigin = ''; alcoholContent = ''; netContents = '';
         if (!locked.has('producerName')) producerName = '';
         if (!locked.has('producerAddress')) producerAddress = '';
         result = null; jobId = null; labels = []; jobDone = false; error = null;
@@ -147,7 +149,7 @@
         const formData = new FormData();
         formData.append('image', files[0]);
         formData.append('application', JSON.stringify(buildApplicationData({
-            brandName, beverageType, alcoholContent, netContents, producerName, producerAddress
+            brandName, classType, beverageType, alcoholContent, netContents, producerName, producerAddress, countryOfOrigin
         })));
         try {
             const res = await fetch('/api/verify', { method: 'POST', body: formData });
@@ -163,7 +165,7 @@
         const fd = new FormData();
         files.forEach((f) => fd.append('images', f));
         fd.append('application', JSON.stringify(buildApplicationData({
-            brandName, beverageType, alcoholContent, netContents, producerName, producerAddress
+            brandName, classType, beverageType, alcoholContent, netContents, producerName, producerAddress, countryOfOrigin
         })));
         try {
             const res = await fetch('/api/batch/upload', { method: 'POST', body: fd });
@@ -302,8 +304,8 @@
         />
 
         <div class="space-y-6 min-w-0">
-            <ComplianceForm 
-                bind:brandName bind:producerName bind:beverageType bind:producerAddress bind:alcoholContent bind:netContents
+            <ComplianceForm
+                bind:brandName bind:producerName bind:beverageType bind:classType bind:producerAddress bind:countryOfOrigin bind:alcoholContent bind:netContents
                 {locked} {result} {jobId} {loading} {submitting} {files}
                 {brandHistory} {producerHistory} {addressHistory} {fieldResultMap}
                 onToggleLock={toggleLock}

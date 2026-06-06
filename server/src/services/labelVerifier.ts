@@ -11,7 +11,7 @@ import {
   type ImageMediaType,
 } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
-import { TTB_REQUIREMENTS } from "../constants/requirements";
+import { TTB_REQUIREMENTS, CFR_CITATIONS } from "../constants/requirements";
 
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
@@ -28,7 +28,7 @@ export const VerificationResultSchema = z.object({
   labelId: z.string().optional(),
 });
 
-const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance verifier.
+const PROMPT_BASE = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance verifier.
 
 Analyze the provided label image against the application data. Return ONLY valid JSON — no prose, no markdown, no code fences, no backticks.
 
@@ -56,22 +56,73 @@ governmentWarning: The label must contain this exact text:
 ${GOVERNMENT_WARNING}
 "GOVERNMENT WARNING:" must appear in all caps. Any deviation, truncation, or omission → "fail".
 
-All other fields (netContents, beverageType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". Only verify optional fields if present in the application data.
+All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". Only verify optional fields if present in the application data.
 
 IMAGE QUALITY: If a field is affected by glare, angle, or blur, set status to "warning" and note the quality issue in notes.
 
-NEVER infer or guess field values. If you cannot clearly read a value → "not_found" with an explanation in notes.
+NEVER infer or guess field values. If you cannot clearly read a value → "not_found" with an explanation in notes.`;
+
+const PROMPT_FOOTER = `
 
 OVERALL STATUS:
 - "pass" — all fields are "pass"
 - "warning" — any field is "warning" (no fields are "fail" or "not_found")
 - "fail" — any field is "fail" or "not_found"`;
 
-const STRICT_SYSTEM_PROMPT =
-  SYSTEM_PROMPT +
-  `
+function buildRequirementsBlock(
+  beverageType: LabelApplication["beverageType"],
+): string {
+  const reqs = TTB_REQUIREMENTS[beverageType];
+  const label = beverageType.replace(/_/g, " ").toUpperCase();
 
-CRITICAL: Your previous response was not valid JSON matching the required schema. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.`;
+  const alwaysRequired = reqs.alwaysRequired.join(", ");
+
+  const conditionalLines = reqs.conditional
+    .map((c) => `- ${c.field}: required if ${c.condition}`)
+    .join("\n");
+
+  let beverageSpecific = "";
+
+  if (beverageType === "distilled_spirits") {
+    beverageSpecific = `
+SAME FIELD OF VISION (${CFR_CITATIONS.sameFieldOfVision.spirits}):
+brandName, classType, and alcoholContent must all be simultaneously visible on one panel without rotating the container. If any of these three fields appears on a different panel, set that field's status to "fail" and include "(${CFR_CITATIONS.sameFieldOfVision.spirits})" in its notes.`;
+  }
+
+  if (beverageType === "beer") {
+    beverageSpecific = `
+ALCOHOL CONTENT FOR BEER:
+alcoholContent is NOT always required for beer. Only flag it missing if the label shows evidence of added flavors or non-beverage ingredients (e.g., "with natural flavors", "flavored malt beverage", "with fruit juice"). If no such evidence is present and alcoholContent is absent from the label, do not penalize.`;
+  }
+
+  return `
+
+TTB MANDATORY REQUIREMENTS — ${label}:
+Always required: ${alwaysRequired}
+${beverageSpecific}
+CONDITIONAL FIELDS (only flag missing if the condition applies):
+${conditionalLines}
+
+CFR CITATIONS:
+Include the applicable CFR citation in the notes field of any FieldResult where a violation is found. Examples: "ABV missing (${CFR_CITATIONS.alcoholContent.spirits})", "Government warning text incorrect (${CFR_CITATIONS.governmentWarning.all})".`;
+}
+
+function buildSystemPrompt(
+  beverageType: LabelApplication["beverageType"],
+): string {
+  return PROMPT_BASE + buildRequirementsBlock(beverageType) + PROMPT_FOOTER;
+}
+
+function buildStrictSystemPrompt(
+  beverageType: LabelApplication["beverageType"],
+): string {
+  return (
+    buildSystemPrompt(beverageType) +
+    `
+
+CRITICAL: Your previous response was not valid JSON matching the required schema. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.`
+  );
+}
 
 export function deriveOverallStatus(fields: FieldResult[]): OverallStatus {
   if (fields.some((f) => f.status === "fail" || f.status === "not_found"))
@@ -101,13 +152,15 @@ export async function verifyLabel(
 
   // Run preflight and verification in parallel — eliminates sequential haiku overhead
   // and prevents haiku false-negatives from blocking the sonnet verification
+  const systemPrompt = buildSystemPrompt(application.beverageType);
+
   const [preflight, raw] = await Promise.all([
     preflightImageCheck(imageBase64, mediaType, signal),
     callClaudeVision(
       imageBase64,
       mediaType,
       application,
-      SYSTEM_PROMPT,
+      systemPrompt,
       signal,
     ),
   ]);
@@ -151,7 +204,7 @@ export async function verifyLabel(
     imageBase64,
     mediaType,
     application,
-    STRICT_SYSTEM_PROMPT,
+    buildStrictSystemPrompt(application.beverageType),
     signal,
   );
   const parsedRetry = tryParse(rawRetry);

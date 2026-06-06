@@ -20,6 +20,7 @@ export function parseSmartPaste(text: string) {
 
 export function buildApplicationData(data: {
     brandName: string
+    classType: string
     beverageType: string
     alcoholContent: string
     netContents: string
@@ -32,6 +33,7 @@ export function buildApplicationData(data: {
 }) {
     const app: Record<string, string> = {
         brandName: data.brandName.trim(),
+        classType: data.classType.trim(),
         beverageType: data.beverageType,
         alcoholContent: data.alcoholContent.trim(),
         netContents: data.netContents.trim(),

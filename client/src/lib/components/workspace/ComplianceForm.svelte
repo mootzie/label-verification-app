@@ -6,11 +6,13 @@
     import FieldFeedback from './FieldFeedback.svelte';
     import type { VerificationResult, BatchLabelItem, FieldResult } from '$shared/index';
 
-    let { 
+    let {
         brandName = $bindable(),
         producerName = $bindable(),
         beverageType = $bindable(),
+        classType = $bindable(),
         producerAddress = $bindable(),
+        countryOfOrigin = $bindable(),
         alcoholContent = $bindable(),
         netContents = $bindable(),
         locked,
@@ -30,7 +32,9 @@
         brandName: string,
         producerName: string,
         beverageType: string,
+        classType: string,
         producerAddress: string,
+        countryOfOrigin: string,
         alcoholContent: string,
         netContents: string,
         locked: Set<string>,
@@ -54,6 +58,7 @@
         files.length > 0 &&
         brandName.trim() !== '' &&
         beverageType !== '' &&
+        classType.trim() !== '' &&
         alcoholContent.trim() !== '' &&
         netContents.trim() !== '' &&
         producerName.trim() !== '' &&
@@ -115,7 +120,7 @@
                     </div>
                 </div>
 
-                <!-- Row 2: Type & Producer Address -->
+                <!-- Row 2: Beverage Type & Class/Type -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div class="space-y-1">
                         <label for="beverageType" class="font-semibold text-gray-700 tracking-tight">Beverage Type <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
@@ -128,19 +133,39 @@
                         <FieldFeedback fr={fieldResultMap.get('beverageType')} />
                     </div>
                     <div>
-                        <div class="mb-1.5 flex items-center justify-between h-6">
-                            <label for="producerAddress" class="font-semibold text-gray-700 tracking-tight">Producer Address <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
-                            <button type="button" class="rounded p-1 {locked.has('producerAddress') ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}" onclick={() => onToggleLock('producerAddress')} aria-label="Lock"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></button>
-                        </div>
+                        <label for="classType" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Class/Type <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
                         <div class="relative">
-                            <input id="producerAddress" type="text" bind:value={producerAddress} list="addresses-list" autocomplete="off" disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'producerAddress')}" />
-                            {@render statusIcon('producerAddress')}
+                            <input id="classType" type="text" placeholder="e.g. Bourbon Whiskey" bind:value={classType} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'classType')}" />
+                            {@render statusIcon('classType')}
                         </div>
-                        <FieldFeedback fr={fieldResultMap.get('producerAddress')} />
+                        <FieldFeedback fr={fieldResultMap.get('classType')} />
                     </div>
                 </div>
 
-                <!-- Row 3: Alcohol & Net Contents -->
+                <!-- Row 3: Producer Address -->
+                <div>
+                    <div class="mb-1.5 flex items-center justify-between h-6">
+                        <label for="producerAddress" class="font-semibold text-gray-700 tracking-tight">Producer Address <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
+                        <button type="button" class="rounded p-1 {locked.has('producerAddress') ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}" onclick={() => onToggleLock('producerAddress')} aria-label="Lock"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></button>
+                    </div>
+                    <div class="relative">
+                        <input id="producerAddress" type="text" bind:value={producerAddress} list="addresses-list" autocomplete="off" disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'producerAddress')}" />
+                        {@render statusIcon('producerAddress')}
+                    </div>
+                    <FieldFeedback fr={fieldResultMap.get('producerAddress')} />
+                </div>
+
+                <!-- Country of Origin (optional) -->
+                <div>
+                    <label for="countryOfOrigin" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Country of Origin <span class="ml-1.5 text-xs font-normal text-gray-400">Required for imported products</span></label>
+                    <div class="relative">
+                        <input id="countryOfOrigin" type="text" placeholder="e.g. France" bind:value={countryOfOrigin} disabled={!!jobId || loading} class="{INPUT_BASE} {borderCls(fieldResultMap, 'countryOfOrigin')}" />
+                        {@render statusIcon('countryOfOrigin')}
+                    </div>
+                    <FieldFeedback fr={fieldResultMap.get('countryOfOrigin')} />
+                </div>
+
+                <!-- Row 4: Alcohol & Net Contents -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <label for="alcoholContent" class="mb-1.5 block font-semibold text-gray-700 tracking-tight h-6 flex items-center">Alcohol Content <span class="text-red-500 px-0.5 font-semibold text-lg">*</span></label>
@@ -163,7 +188,7 @@
 
             <!-- Automatic / Background Field Failures -->
             {#if result}
-                {@const primaryFields = ['brandName', 'beverageType', 'alcoholContent', 'netContents', 'producerName', 'producerAddress']}
+                {@const primaryFields = ['brandName', 'beverageType', 'classType', 'alcoholContent', 'netContents', 'producerName', 'producerAddress', 'countryOfOrigin']}
                 {@const autoFailures = result.fields.filter(f => !primaryFields.includes(f.fieldName) && f.status !== 'pass')}
                 
                 {#if autoFailures.length > 0}

@@ -22,6 +22,7 @@
     let brandName = $state('')
     let productName = $state('')
     let beverageType = $state<'beer' | 'wine' | 'distilled_spirits' | ''>('')
+    let classType = $state('')
     let alcoholContent = $state('')
     let netContents = $state('')
     let producerName = $state('')
@@ -47,6 +48,7 @@
     let baselineComplete = $derived(
         brandName.trim() !== '' &&
             beverageType !== '' &&
+            classType.trim() !== '' &&
             alcoholContent.trim() !== '' &&
             netContents.trim() !== '' &&
             producerName.trim() !== '' &&
@@ -161,6 +163,7 @@
 
         const application: Record<string, string> = {
             brandName: brandName.trim(),
+            classType: classType.trim(),
             beverageType,
             alcoholContent: alcoholContent.trim(),
             netContents: netContents.trim(),
@@ -425,15 +428,21 @@
                             <input id="b-brandName" type="text" bind:value={brandName} disabled={!!jobId} class={INPUT_BASE} />
                         </div>
 
-                        <!-- Beverage Type -->
-                        <div>
-                            <label for="b-beverageType" class="mb-1 block text-sm font-medium text-gray-700">Beverage Type *</label>
-                            <select id="b-beverageType" bind:value={beverageType} disabled={!!jobId} class={INPUT_BASE}>
-                                <option value="">Select type</option>
-                                <option value="beer">Beer</option>
-                                <option value="wine">Wine</option>
-                                <option value="distilled_spirits">Distilled Spirits</option>
-                            </select>
+                        <!-- Beverage Type + Class/Type -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="b-beverageType" class="mb-1 block text-sm font-medium text-gray-700">Beverage Type *</label>
+                                <select id="b-beverageType" bind:value={beverageType} disabled={!!jobId} class={INPUT_BASE}>
+                                    <option value="">Select type</option>
+                                    <option value="beer">Beer</option>
+                                    <option value="wine">Wine</option>
+                                    <option value="distilled_spirits">Distilled Spirits</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="b-classType" class="mb-1 block text-sm font-medium text-gray-700">Class/Type *</label>
+                                <input id="b-classType" type="text" placeholder="e.g. Bourbon Whiskey" bind:value={classType} disabled={!!jobId} class={INPUT_BASE} />
+                            </div>
                         </div>
 
                         <!-- Alcohol Content + Net Contents -->

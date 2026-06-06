@@ -24,6 +24,7 @@ const upload = multer({
 const LabelApplicationSchema = z.object({
   brandName: z.string().min(1),
   productName: z.string().optional(),
+  classType: z.string().min(1),
   alcoholContent: z.string().min(1),
   netContents: z.string().min(1),
   beverageType: z.enum(["beer", "wine", "distilled_spirits"]),

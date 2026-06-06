@@ -20,6 +20,7 @@ export interface VerificationResult {
 export interface LabelApplication {
   brandName: string;
   productName?: string;
+  classType: string; // TTB class/type designation, e.g. "Bourbon Whiskey", "American Lager"
   alcoholContent: string; // e.g. "12.5% ALC/VOL"
   netContents: string; // e.g. "750 mL"
   beverageType: "beer" | "wine" | "distilled_spirits";
