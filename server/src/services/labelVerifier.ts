@@ -1,19 +1,28 @@
-import { z } from 'zod';
-import type { FieldResult, LabelApplication, OverallStatus, VerificationResult } from '../types/index';
-import { callClaudeVision, preflightImageCheck, type ImageMediaType } from './claude';
-import { GOVERNMENT_WARNING } from '../constants/warnings';
-import { TTB_REQUIREMENTS } from '../constants/requirements';
+import { z } from "zod";
+import type {
+  FieldResult,
+  LabelApplication,
+  OverallStatus,
+  VerificationResult,
+} from "../types/index";
+import {
+  callClaudeVision,
+  preflightImageCheck,
+  type ImageMediaType,
+} from "./claude";
+import { GOVERNMENT_WARNING } from "../constants/warnings";
+import { TTB_REQUIREMENTS } from "../constants/requirements";
 
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
   expectedValue: z.string().nullable(),
   foundValue: z.string().nullable(),
-  status: z.enum(['pass', 'warning', 'fail', 'not_found']),
+  status: z.enum(["pass", "warning", "fail", "not_found"]),
   notes: z.string(),
 });
 
 export const VerificationResultSchema = z.object({
-  overallStatus: z.enum(['pass', 'fail', 'warning']),
+  overallStatus: z.enum(["pass", "fail", "warning"]),
   fields: z.array(FieldResultSchema).min(1),
   processingTimeMs: z.number().optional(),
   labelId: z.string().optional(),
@@ -58,14 +67,17 @@ OVERALL STATUS:
 - "warning" — any field is "warning" (no fields are "fail" or "not_found")
 - "fail" — any field is "fail" or "not_found"`;
 
-const STRICT_SYSTEM_PROMPT = SYSTEM_PROMPT + `
+const STRICT_SYSTEM_PROMPT =
+  SYSTEM_PROMPT +
+  `
 
 CRITICAL: Your previous response was not valid JSON matching the required schema. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.`;
 
 export function deriveOverallStatus(fields: FieldResult[]): OverallStatus {
-  if (fields.some(f => f.status === 'fail' || f.status === 'not_found')) return 'fail';
-  if (fields.some(f => f.status === 'warning')) return 'warning';
-  return 'pass';
+  if (fields.some((f) => f.status === "fail" || f.status === "not_found"))
+    return "fail";
+  if (fields.some((f) => f.status === "warning")) return "warning";
+  return "pass";
 }
 
 export function tryParse(raw: string): VerificationResult | null {
@@ -83,7 +95,7 @@ export async function verifyLabel(
   imageBase64: string,
   mediaType: ImageMediaType,
   application: LabelApplication,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<VerificationResult> {
   const start = Date.now();
 
@@ -91,7 +103,13 @@ export async function verifyLabel(
   // and prevents haiku false-negatives from blocking the sonnet verification
   const [preflight, raw] = await Promise.all([
     preflightImageCheck(imageBase64, mediaType, signal),
-    callClaudeVision(imageBase64, mediaType, application, SYSTEM_PROMPT, signal),
+    callClaudeVision(
+      imageBase64,
+      mediaType,
+      application,
+      SYSTEM_PROMPT,
+      signal,
+    ),
   ]);
 
   // Annotate with quality warning without blocking — haiku opinion doesn't gate sonnet
@@ -99,13 +117,14 @@ export async function verifyLabel(
     if (preflight.readable) return fields;
     return [
       {
-        fieldName: 'imageQuality',
-        expectedValue: 'Clear, readable label image',
+        fieldName: "imageQuality",
+        expectedValue: "Clear, readable label image",
         foundValue: null,
-        status: 'warning',
-        notes: preflight.issues.length > 0
-          ? `Image quality may affect accuracy: ${preflight.issues.join('; ')}`
-          : 'Image quality may affect accuracy',
+        status: "warning",
+        notes:
+          preflight.issues.length > 0
+            ? `Image quality may affect accuracy: ${preflight.issues.join("; ")}`
+            : "Image quality may affect accuracy",
       },
       ...fields,
     ];
@@ -114,24 +133,40 @@ export async function verifyLabel(
   const parsed = tryParse(raw);
   if (parsed) {
     const fields = annotate(parsed.fields);
-    return { ...parsed, fields, overallStatus: deriveOverallStatus(fields), processingTimeMs: Date.now() - start };
+    return {
+      ...parsed,
+      fields,
+      overallStatus: deriveOverallStatus(fields),
+      processingTimeMs: Date.now() - start,
+    };
   }
 
   if (signal?.aborted) {
-    const err = new Error('Aborted');
-    err.name = 'AbortError';
+    const err = new Error("Aborted");
+    err.name = "AbortError";
     throw err;
   }
 
-  const rawRetry = await callClaudeVision(imageBase64, mediaType, application, STRICT_SYSTEM_PROMPT, signal);
+  const rawRetry = await callClaudeVision(
+    imageBase64,
+    mediaType,
+    application,
+    STRICT_SYSTEM_PROMPT,
+    signal,
+  );
   const parsedRetry = tryParse(rawRetry);
 
   if (parsedRetry) {
     const fields = annotate(parsedRetry.fields);
-    return { ...parsedRetry, fields, overallStatus: deriveOverallStatus(fields), processingTimeMs: Date.now() - start };
+    return {
+      ...parsedRetry,
+      fields,
+      overallStatus: deriveOverallStatus(fields),
+      processingTimeMs: Date.now() - start,
+    };
   }
 
   throw new Error(
-    `Claude response failed schema validation after retry. Last response: ${rawRetry.slice(0, 200)}`
+    `Claude response failed schema validation after retry. Last response: ${rawRetry.slice(0, 200)}`,
   );
 }
