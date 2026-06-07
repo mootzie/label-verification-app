@@ -8,6 +8,7 @@
 
 <div 
     class="relative inline-block"
+    role="presentation"
     onmouseenter={() => visible = true}
     onmouseleave={() => visible = false}
 >

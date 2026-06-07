@@ -5,6 +5,7 @@
     variant?: 'default' | 'outline' | 'ghost' | 'destructive';
     size?: 'default' | 'sm' | 'lg';
     disabled?: boolean;
+    title?: string;
     type?: 'button' | 'submit' | 'reset';
     class?: string;
     onclick?: (e: MouseEvent) => void;
@@ -15,6 +16,7 @@
     variant = 'default',
     size = 'default',
     disabled = false,
+    title,
     type = 'button',
     class: className = '',
     onclick,
@@ -40,6 +42,7 @@
 <button
   {type}
   {disabled}
+  {title}
   class={cn(base, variants[variant], sizes[size], className)}
   {onclick}
 >

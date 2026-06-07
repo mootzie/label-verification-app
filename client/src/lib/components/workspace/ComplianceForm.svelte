@@ -41,6 +41,7 @@
         onToggleLock,
         onSubmit,
         statusIcon,
+        compact = false,
     }: {
         brandName: string
         producerName: string
@@ -63,10 +64,21 @@
         onToggleLock: (field: string) => void
         onSubmit: (e: Event) => void
         statusIcon: any
+        compact?: boolean
     } = $props()
 
-    const INPUT_BASE =
-        'w-full rounded-md border px-3 h-11 text-base text-gray-900 focus:outline-none focus:ring-1 transition-colors'
+    let inputBase = $derived(
+        compact
+            ? 'w-full rounded border px-2.5 h-9 text-sm text-gray-900 focus:outline-none focus:ring-1 transition-colors'
+            : 'w-full rounded-md border px-3 h-11 text-base text-gray-900 focus:outline-none focus:ring-1 transition-colors'
+    )
+    let fieldGap = $derived(compact ? 'gap-3' : result ? 'gap-3' : 'gap-8')
+    let formSpacing = $derived(compact ? 'space-y-3' : result ? 'space-y-3' : 'space-y-8')
+    let labelClass = $derived(
+        compact
+            ? 'text-xs font-bold uppercase text-gray-600'
+            : 'font-semibold text-gray-800 tracking-tight'
+    )
     const primaryFields = [
         'brandName',
         'beverageType',
@@ -117,9 +129,12 @@
     )
 
     function getOS() {
+        const nav = navigator as Navigator & {
+            userAgentData?: { platform?: string }
+        }
         // 1. Check the modern User-Agent Client Hints API (Chromium-based browsers)
-        if (navigator.userAgentData && navigator.userAgentData.platform) {
-            const platform = navigator.userAgentData.platform.toLowerCase()
+        if (nav.userAgentData?.platform) {
+            const platform = nav.userAgentData.platform.toLowerCase()
             if (platform.includes('windows')) return 'windows'
             if (platform.includes('macos')) return 'mac'
         }
@@ -198,15 +213,17 @@
 
 <form onsubmit={onSubmit} autocomplete="off" class="flex flex-col">
     <Card
-        class="border-gray-200 transition-all shadow-lg h-full {result
+        class="{compact
+            ? 'border-gray-200 shadow-sm'
+            : 'border-gray-200 transition-all shadow-lg h-full'} {result
             ? 'ring-1 ring-black/5'
             : ''}"
     >
-        <CardHeader class="py-5 border-b border-gray-200">
+        <CardHeader class="{compact ? 'py-3' : 'py-5'} border-b border-gray-200 bg-white">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex flex-col gap-1.5">
-                    <CardTitle class="text-xl font-semibold"
-                        >Label Verification</CardTitle
+                    <CardTitle class="{compact ? 'text-sm' : 'text-xl'} font-bold text-gray-950"
+                        >{compact ? 'Application Data' : 'Label Verification'}</CardTitle
                     >
                     {#if result}
                         <div class="flex items-center gap-2 flex-wrap">
@@ -235,8 +252,10 @@
                             >
                         </div>
                     {:else}
-                        <p class="text-sm text-gray-600 font-medium">
-                            Check label against TTB requirements
+                        <p class="{compact ? 'text-xs' : 'text-sm'} text-gray-600 font-medium">
+                            {compact
+                                ? 'Supporting application values used for verification'
+                                : 'Check label against TTB requirements'}
                         </p>
                     {/if}
                 </div>
@@ -251,10 +270,10 @@
             </div>
         </CardHeader>
 
-        <CardContent class="p-6 min-w-0 bg-white">
+        <CardContent class="{compact ? 'p-3' : 'p-6'} min-w-0 bg-white">
             <!-- ── Automatic checks (government warning, state of distillation, etc.)  -->
             <!-- Shown at top so agent sees auto-detected issues immediately             -->
-            {#if result}
+            {#if result && !compact}
                 {@const autoChecks = result.fields.filter(
                     (f) => !primaryFields.includes(f.fieldName)
                 )}
@@ -354,8 +373,8 @@
             {/if}
 
             <!-- ── Form fields ──────────────────────────────────────────────────────── -->
-            <div class={result ? 'space-y-3' : 'space-y-8'}>
-                {#if !result}
+            <div class={formSpacing}>
+                {#if !result && !compact}
                     <div class="flex items-center justify-between">
                         <p class="text-sm text-gray-600">
                             <span class="text-red-500">*</span> Required
@@ -378,9 +397,7 @@
 
                 <!-- Brand Name + Producer Name -->
                 <div
-                    class="grid grid-cols-1 md:grid-cols-2 {result
-                        ? 'gap-3'
-                        : 'gap-8'}"
+                    class="grid grid-cols-1 md:grid-cols-2 {fieldGap}"
                 >
                     {#if isPass('brandName')}
                         {@render passRow('Brand Name', 'brandName')}
@@ -389,7 +406,7 @@
                             <div class="mb-1.5 flex items-center gap-2">
                                 <label
                                     for="brandName"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Brand Name <span
                                         class="text-red-500 px-0.5 font-semibold"
                                         >*</span
@@ -407,7 +424,7 @@
                                     list="brands-list"
                                     autocomplete="off"
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'brandName'
                                     )}"
@@ -430,7 +447,7 @@
                                 <div class="flex items-center gap-2">
                                     <label
                                         for="producerName"
-                                        class="font-semibold text-gray-800 tracking-tight"
+                                        class={labelClass}
                                         >Producer Name <span
                                             class="text-red-500 px-0.5 font-semibold"
                                             >*</span
@@ -459,7 +476,7 @@
                                     list="producers-list"
                                     autocomplete="off"
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'producerName'
                                     )}"
@@ -475,9 +492,7 @@
 
                 <!-- Beverage Type + Class/Type -->
                 <div
-                    class="grid grid-cols-1 md:grid-cols-2 {result
-                        ? 'gap-3'
-                        : 'gap-8'}"
+                    class="grid grid-cols-1 md:grid-cols-2 {fieldGap}"
                 >
                     <!-- Beverage type: Claude uses it as context but doesn't verify it against the label -->
                     {#if result}
@@ -486,7 +501,7 @@
                         <div>
                             <label
                                 for="beverageType"
-                                class="mb-1.5 block font-semibold text-gray-800 tracking-tight"
+                                class="mb-1.5 block {labelClass}"
                                 >Beverage Type <span
                                     class="text-red-500 px-0.5 font-semibold"
                                     >*</span
@@ -496,7 +511,7 @@
                                 id="beverageType"
                                 bind:value={beverageType}
                                 disabled={!!jobId || loading}
-                                class="{INPUT_BASE} {borderCls(
+                                class="{inputBase} {borderCls(
                                     fieldResultMap,
                                     'beverageType'
                                 )}"
@@ -518,7 +533,7 @@
                             <div class="mb-1.5 flex items-center gap-2">
                                 <label
                                     for="classType"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Class / Type <span
                                         class="text-red-500 px-0.5 font-semibold"
                                         >*</span
@@ -535,7 +550,7 @@
                                     placeholder="e.g. Bourbon Whiskey"
                                     bind:value={classType}
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'classType'
                                     )}"
@@ -558,7 +573,7 @@
                             <div class="flex items-center gap-2">
                                 <label
                                     for="producerAddress"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Producer Address <span
                                         class="text-red-500 px-0.5 font-semibold"
                                         >*</span
@@ -587,7 +602,7 @@
                                 list="addresses-list"
                                 autocomplete="off"
                                 disabled={!!jobId || loading}
-                                class="{INPUT_BASE} {borderCls(
+                                class="{inputBase} {borderCls(
                                     fieldResultMap,
                                     'producerAddress'
                                 )}"
@@ -612,7 +627,7 @@
                             <div class="mb-1.5 flex items-center gap-2">
                                 <label
                                     for="countryOfOrigin"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Country of Origin</label
                                 >
                                 <span class="text-xs font-normal text-gray-500"
@@ -629,7 +644,7 @@
                                     placeholder="e.g. France"
                                     bind:value={countryOfOrigin}
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'countryOfOrigin'
                                     )}"
@@ -645,9 +660,7 @@
 
                 <!-- Alcohol Content + Net Contents -->
                 <div
-                    class="grid grid-cols-1 md:grid-cols-2 {result
-                        ? 'gap-3'
-                        : 'gap-8'}"
+                    class="grid grid-cols-1 md:grid-cols-2 {fieldGap}"
                 >
                     {#if isPass('alcoholContent')}
                         {@render passRow('Alcohol Content', 'alcoholContent')}
@@ -656,7 +669,7 @@
                             <div class="mb-1.5 flex items-center gap-2">
                                 <label
                                     for="alcoholContent"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Alcohol Content <span
                                         class="text-red-500 px-0.5 font-semibold"
                                         >*</span
@@ -673,7 +686,7 @@
                                     placeholder="e.g. 12.5%"
                                     bind:value={alcoholContent}
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'alcoholContent'
                                     )}"
@@ -693,7 +706,7 @@
                             <div class="mb-1.5 flex items-center gap-2">
                                 <label
                                     for="netContents"
-                                    class="font-semibold text-gray-800 tracking-tight"
+                                    class={labelClass}
                                     >Net Contents <span
                                         class="text-red-500 px-0.5 font-semibold"
                                         >*</span
@@ -710,7 +723,7 @@
                                     placeholder="e.g. 750 mL"
                                     bind:value={netContents}
                                     disabled={!!jobId || loading}
-                                    class="{INPUT_BASE} {borderCls(
+                                    class="{inputBase} {borderCls(
                                         fieldResultMap,
                                         'netContents'
                                     )}"
@@ -727,12 +740,12 @@
 
             <!-- Submit button -->
             {#if !jobId}
-                <div class="mt-6 pt-4 border-t border-gray-100">
+                <div class="{compact ? 'mt-3 pt-3' : 'mt-6 pt-4'} border-t border-gray-100">
                     {#if result?.overallStatus === 'pass'}
                         <Button
                             type="button"
                             onclick={handleSubmitClick}
-                            class="w-full h-12 text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px] bg-green-600 hover:bg-green-700 text-white"
+                            class="w-full {compact ? 'h-9' : 'h-12'} text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px] bg-green-600 hover:bg-green-700 text-white"
                         >
                             Submit to COLA System
                         </Button>
@@ -740,7 +753,7 @@
                         <Button
                             type="submit"
                             disabled={!canSubmit}
-                            class="w-full h-12 text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px]"
+                            class="w-full {compact ? 'h-9' : 'h-12'} text-sm font-semibold tracking-wider shadow-sm transition-all hover:translate-y-[-1px]"
                         >
                             {#if loading || submitting}
                                 <svg

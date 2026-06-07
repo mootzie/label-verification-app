@@ -9,12 +9,12 @@
     } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Tooltip } from '$lib/components/ui/tooltip'
-    import { Alert, AlertDescription } from '$lib/components/ui/alert'
 
     // Components
     import MediaPanel from '$lib/components/workspace/MediaPanel.svelte'
     import ComplianceForm from '$lib/components/workspace/ComplianceForm.svelte'
     import BatchQueue from '$lib/components/workspace/BatchQueue.svelte'
+    import VerificationReview from '$lib/components/workspace/VerificationReview.svelte'
 
     // Utils
     import { loadHist, saveHist } from '$lib/utils/history'
@@ -68,6 +68,7 @@
     let submitting = $state(false)
     let error = $state<string | null>(null)
     let result = $state<VerificationResult | null>(null)
+    let selectedReviewFieldName = $state<string | null>(null)
     let jobId = $state<string | null>(null)
     let labels = $state<BatchLabelItem[]>([])
     let jobDone = $state(false)
@@ -95,6 +96,14 @@
             )
         )
     )
+    let headerProcessingTime = $derived(
+        result?.processingTimeMs
+            ? `Processed in ${(result.processingTimeMs / 1000).toFixed(1)} seconds`
+            : loading
+              ? 'Processing label...'
+              : 'Ready for verification'
+    )
+    let reviewActive = $derived(result !== null || loading || error !== null)
 
     // #region Handlers
     function toggleLock(field: string) {
@@ -124,6 +133,7 @@
         }
         error = null
         result = null
+        selectedReviewFieldName = null
         jobId = null
         labels = []
         jobDone = false
@@ -144,6 +154,7 @@
         selectedFileIndex = 0
         imagePreviewUrl = URL.createObjectURL(first)
         result = null
+        selectedReviewFieldName = null
         jobId = null
         labels = []
         jobDone = false
@@ -208,6 +219,7 @@
         if (!locked.has('producerName')) producerName = ''
         if (!locked.has('producerAddress')) producerAddress = ''
         result = null
+        selectedReviewFieldName = null
         jobId = null
         labels = []
         jobDone = false
@@ -226,6 +238,7 @@
     async function handleSingleSubmit() {
         loading = true
         result = null
+        selectedReviewFieldName = null
         error = null
         const formData = new FormData()
         formData.append('image', await resizeForUpload(files[0]))
@@ -265,6 +278,7 @@
 
     async function handleBatchSubmit() {
         submitting = true
+        selectedReviewFieldName = null
         error = null
         const fd = new FormData()
         const resized = await Promise.all(files.map(resizeForUpload))
@@ -601,12 +615,20 @@
 <datalist id="producers-list">{#each producerHistory as h}<option value={h}></option>{/each}</datalist>
 <datalist id="addresses-list">{#each addressHistory as h}<option value={h}></option>{/each}</datalist> -->
 
-<main
-    class="mx-auto h-full max-w-[2200px] px-6 py-6 overflow-hidden flex flex-col"
->
-    <nav class="mb-6 flex items-center justify-between border-b pb-4">
-        <h1 class="text-xl font-semibold">TTB Label Verification</h1>
-        <div class="flex items-center gap-3">
+<main class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col">
+    <header class="mb-3 flex shrink-0 flex-col gap-3 border-b border-gray-200 pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-lg font-bold text-gray-950">
+                AI-Powered TTB Label Verification
+            </h1>
+            <p class="mt-0.5 text-xs font-medium text-gray-600">
+                Verify alcohol beverage label compliance with TTB requirements.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700">
+                {headerProcessingTime}
+            </span>
             {#if import.meta.env.DEV}
                 <Button
                     variant="outline"
@@ -623,74 +645,123 @@
             {/if}
             {#if jobDone || result}
                 <Tooltip text="Clear everything and start fresh"
-                    ><Button variant="ghost" size="sm" onclick={clearAll}
-                        >New Task</Button
+                    ><Button variant="outline" size="sm" onclick={clearAll}
+                        >New Verification</Button
                     ></Tooltip
                 >
             {/if}
         </div>
-    </nav>
+    </header>
 
-    <div
-        class="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8 items-stretch flex-1 min-h-0"
-    >
-        <MediaPanel
-            {files}
-            {imagePreviewUrl}
-            {selectedFileIndex}
-            {jobId}
-            onFileInput={(e) => {
-                const fl = (e.currentTarget as HTMLInputElement).files
-                if (fl) applyFiles(fl)
-            }}
-            onSelectFile={selectFile}
-            onRemoveFile={removeFile}
-            {onDropZoneKeydown}
-            onUseSingleFile={useSingleFile}
-        />
+    {#if reviewActive}
+        <div class="mb-3 shrink-0">
+            <VerificationReview {result} {loading} {error} mode="banner" />
+        </div>
 
-        <div class="space-y-6 min-w-0 h-full overflow-y-auto">
-            <ComplianceForm
-                bind:brandName
-                bind:producerName
-                bind:beverageType
-                bind:classType
-                bind:producerAddress
-                bind:countryOfOrigin
-                bind:alcoholContent
-                bind:netContents
-                {locked}
-                {result}
-                {jobId}
-                {loading}
-                {submitting}
+        <div
+            class="grid min-h-[560px] grid-cols-1 gap-3 lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
+            style="height: calc(100vh - 190px);"
+        >
+            <MediaPanel
                 {files}
-                {brandHistory}
-                {producerHistory}
-                {addressHistory}
-                {fieldResultMap}
-                onToggleLock={toggleLock}
-                onSubmit={handleSubmit}
-                {statusIcon}
+                {imagePreviewUrl}
+                {selectedFileIndex}
+                {jobId}
+                selectedFieldName={selectedReviewFieldName}
+                highlightFields={result?.fields.map((field) => field.fieldName) ?? []}
+                workstation
+                onFileInput={(e) => {
+                    const fl = (e.currentTarget as HTMLInputElement).files
+                    if (fl) applyFiles(fl)
+                }}
+                onSelectFile={selectFile}
+                onRemoveFile={removeFile}
+                {onDropZoneKeydown}
+                onUseSingleFile={useSingleFile}
             />
 
-            {#if error}<Alert variant="destructive"
-                    ><AlertDescription
-                        class="font-medium text-xs tracking-tight"
-                        >{error}</AlertDescription
-                    ></Alert
-                >{/if}
+            <VerificationReview
+                {result}
+                {loading}
+                {error}
+                mode="body"
+                onSelectedFieldChange={(fieldName) =>
+                    (selectedReviewFieldName = fieldName)}
+            />
+        </div>
 
+        <div class="mt-3 shrink-0">
             <BatchQueue
                 {jobId}
                 {jobDone}
                 {labels}
                 {completedCount}
                 {batchProgress}
+                {files}
+                {selectedFileIndex}
+                onSelectFile={selectFile}
                 onExportCsv={exportCsv}
             />
         </div>
-    </div>
+    {:else}
+        <div
+            class="grid grid-cols-1 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] gap-4 items-stretch flex-1 min-h-0"
+        >
+            <MediaPanel
+                {files}
+                {imagePreviewUrl}
+                {selectedFileIndex}
+                {jobId}
+                selectedFieldName={selectedReviewFieldName}
+                onFileInput={(e) => {
+                    const fl = (e.currentTarget as HTMLInputElement).files
+                    if (fl) applyFiles(fl)
+                }}
+                onSelectFile={selectFile}
+                onRemoveFile={removeFile}
+                {onDropZoneKeydown}
+                onUseSingleFile={useSingleFile}
+            />
+
+            <div class="space-y-6 min-w-0 h-full overflow-y-auto">
+                <ComplianceForm
+                    bind:brandName
+                    bind:producerName
+                    bind:beverageType
+                    bind:classType
+                    bind:producerAddress
+                    bind:countryOfOrigin
+                    bind:alcoholContent
+                    bind:netContents
+                    {locked}
+                    {result}
+                    {jobId}
+                    {loading}
+                    {submitting}
+                    {files}
+                    {brandHistory}
+                    {producerHistory}
+                    {addressHistory}
+                    {fieldResultMap}
+                    onToggleLock={toggleLock}
+                    onSubmit={handleSubmit}
+                    {statusIcon}
+                />
+
+                <BatchQueue
+                    {jobId}
+                    {jobDone}
+                    {labels}
+                    {completedCount}
+                    {batchProgress}
+                    {files}
+                    {selectedFileIndex}
+                    onSelectFile={selectFile}
+                    onExportCsv={exportCsv}
+                />
+            </div>
+        </div>
+    {/if}
 </main>
 
 {#if globalDragActive}

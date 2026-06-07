@@ -16,9 +16,9 @@ export const STATUS_LABEL: Record<string, string> = {
 }
 
 export const OVERALL_LABEL: Record<string, string> = {
-    pass: 'Pass',
-    warning: 'Warning',
-    fail: 'Fail',
+    pass: 'Approved',
+    warning: 'Review Required',
+    fail: 'Rejected',
 }
 
 export const BATCH_STATUS_VARIANT: Record<

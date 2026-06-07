@@ -10,6 +10,7 @@ readme.md
 TESTS.md
 test-images/
 *.md
+*.md.bak
 
 # SvelteKit
 client/.svelte-kit/
