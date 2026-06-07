@@ -101,36 +101,6 @@ export function parseSmartPaste(text: string) {
     }
 }
 
-export function buildApplicationData(data: {
-    brandName: string
-    classType: string
-    beverageType: string
-    alcoholContent: string
-    netContents: string
-    producerName: string
-    producerAddress: string
-    productName?: string
-    countryOfOrigin?: string
-    appellation?: string
-    vintageYear?: string
-}) {
-    const app: Record<string, string> = {
-        brandName: data.brandName.trim(),
-        classType: data.classType.trim(),
-        beverageType: data.beverageType,
-        alcoholContent: data.alcoholContent.trim(),
-        netContents: data.netContents.trim(),
-        producerName: data.producerName.trim(),
-        producerAddress: data.producerAddress.trim(),
-    }
-    if (data.productName?.trim()) app.productName = data.productName.trim()
-    if (data.countryOfOrigin?.trim())
-        app.countryOfOrigin = data.countryOfOrigin.trim()
-    if (data.appellation?.trim()) app.appellation = data.appellation.trim()
-    if (data.vintageYear?.trim()) app.vintageYear = data.vintageYear.trim()
-    return app
-}
-
 export function buildOptionalApplicationData(data: {
     brandName: string
     classType: string

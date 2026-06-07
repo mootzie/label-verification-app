@@ -6,11 +6,7 @@ import type {
   OverallStatus,
   VerificationResult,
 } from "../types/index";
-import {
-  callClaudeVision,
-  preflightImageCheck,
-  type ImageMediaType,
-} from "./claude";
+import { callClaudeVision, type ImageMediaType } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 import { TTB_REQUIREMENTS, CFR_CITATIONS } from "../constants/requirements";
 
@@ -160,47 +156,21 @@ export async function verifyLabel(
   signal?: AbortSignal,
 ): Promise<VerificationResult> {
   const start = Date.now();
-
-  // Run preflight and verification in parallel — eliminates sequential haiku overhead
-  // and prevents haiku false-negatives from blocking the sonnet verification
   const systemPrompt = buildSystemPrompt(application.beverageType);
 
-  const [preflight, raw] = await Promise.all([
-    preflightImageCheck(imageBase64, mediaType, signal),
-    callClaudeVision(
-      imageBase64,
-      mediaType,
-      application,
-      systemPrompt,
-      signal,
-    ),
-  ]);
-
-  // Annotate with quality warning without blocking — haiku opinion doesn't gate sonnet
-  const annotate = (fields: FieldResult[]): FieldResult[] => {
-    if (preflight.readable) return fields;
-    return [
-      {
-        fieldName: "imageQuality",
-        expectedValue: "Clear, readable label image",
-        foundValue: null,
-        status: "warning",
-        notes:
-          preflight.issues.length > 0
-            ? `Image quality may affect accuracy: ${preflight.issues.join("; ")}`
-            : "Image quality may affect accuracy",
-      },
-      ...fields,
-    ];
-  };
+  const raw = await callClaudeVision(
+    imageBase64,
+    mediaType,
+    application,
+    systemPrompt,
+    signal,
+  );
 
   const parsed = tryParse(raw);
   if (parsed) {
-    const fields = annotate(parsed.fields);
     return {
       ...parsed,
-      fields,
-      overallStatus: deriveOverallStatus(fields),
+      overallStatus: deriveOverallStatus(parsed.fields),
       processingTimeMs: Date.now() - start,
     };
   }
@@ -221,11 +191,9 @@ export async function verifyLabel(
   const parsedRetry = tryParse(rawRetry);
 
   if (parsedRetry) {
-    const fields = annotate(parsedRetry.fields);
     return {
       ...parsedRetry,
-      fields,
-      overallStatus: deriveOverallStatus(fields),
+      overallStatus: deriveOverallStatus(parsedRetry.fields),
       processingTimeMs: Date.now() - start,
     };
   }

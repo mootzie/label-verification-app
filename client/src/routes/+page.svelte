@@ -1,36 +1,42 @@
 <script lang="ts">
     import { browser } from '$app/environment'
-    import { fly } from 'svelte/transition'
     import type {
         VerificationResult,
         BatchLabelItem,
         BatchJobStatus,
-        FieldResult,
     } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Tooltip } from '$lib/components/ui/tooltip'
 
-    // Components
     import MediaPanel from '$lib/components/workspace/MediaPanel.svelte'
-    import ComplianceForm from '$lib/components/workspace/ComplianceForm.svelte'
+    import ApplicationDataInput from '$lib/components/workspace/ApplicationDataInput.svelte'
     import BatchQueue from '$lib/components/workspace/BatchQueue.svelte'
     import VerificationReview from '$lib/components/workspace/VerificationReview.svelte'
 
-    // Utils
-    import { loadHist, saveHist } from '$lib/utils/history'
     import {
         parseSmartPaste,
         buildOptionalApplicationData,
     } from '$lib/utils/application-builder'
-    import { OVERALL_LABEL } from '$lib/utils/compliance-logic'
     import { resizeForUpload } from '$lib/utils/image-resize'
+    import {
+        setupGlobalDragAndDrop,
+        setupCtrlVHandler,
+    } from '$lib/utils/globalDragAndDrop'
+    import {
+        MOCK_EXTRACTION,
+        MOCK_COMPARISON,
+        applyMockBatch,
+    } from '$lib/utils/debug-mocks'
+    import { exportBatchCsv } from '$lib/utils/export'
+    import DragAndDrop from '$lib/components/ui/dragAndDrop/DragAndDrop.svelte'
 
-    // ── Primary State ────────────────────────────────────────────────────────────
+    // ── State ────────────────────────────────────────────────────────────────────
     let files = $state<File[]>([])
     let selectedFileIndex = $state<number | null>(null)
     let imagePreviewUrl = $state<string | null>(null)
     let globalDragActive = $state(false)
 
+    // Application data — populated by paste/parse or manual entry in ApplicationDataInput
     let brandName = $state('')
     let beverageType = $state<'beer' | 'wine' | 'distilled_spirits' | ''>('')
     let classType = $state('')
@@ -40,31 +46,8 @@
     let producerAddress = $state('')
     let countryOfOrigin = $state('')
 
-    const LOCK_KEY = 'ttb_locked_fields'
-    const DEFAULT_LOCKED = ['producerName', 'producerAddress']
-
-    function loadLocked(): Set<string> {
-        if (!browser) return new Set(DEFAULT_LOCKED)
-        try {
-            const raw = localStorage.getItem(LOCK_KEY)
-            return raw ? new Set(JSON.parse(raw)) : new Set(DEFAULT_LOCKED)
-        } catch {
-            return new Set(DEFAULT_LOCKED)
-        }
-    }
-
-    function saveLocked(s: Set<string>) {
-        if (!browser) return
-        localStorage.setItem(LOCK_KEY, JSON.stringify([...s]))
-    }
-
-    let locked = $state(loadLocked())
-
-    let brandHistory = $state<string[]>([])
-    let producerHistory = $state<string[]>([])
-    let addressHistory = $state<string[]>([])
-
     let loading = $state(false)
+    let comparing = $state(false)
     let submitting = $state(false)
     let error = $state<string | null>(null)
     let result = $state<VerificationResult | null>(null)
@@ -74,14 +57,7 @@
     let jobDone = $state(false)
     let es: EventSource | null = null
 
-    // #region Initialization
-    $effect(() => {
-        brandHistory = loadHist('ttb_brands')
-        producerHistory = loadHist('ttb_producers')
-        addressHistory = loadHist('ttb_addresses')
-    })
-
-    // #region Derived
+    // ── Derived ──────────────────────────────────────────────────────────────────
     let completedCount = $derived(
         labels.filter((l) => l.status === 'complete' || l.status === 'failed')
             .length
@@ -89,31 +65,16 @@
     let batchProgress = $derived(
         labels.length > 0 ? (completedCount / labels.length) * 100 : 0
     )
-    let fieldResultMap = $derived(
-        new Map<string, FieldResult>(
-            (result !== null ? result.fields : []).map(
-                (f) => [f.fieldName, f] as [string, FieldResult]
-            )
-        )
-    )
     let headerProcessingTime = $derived(
         result?.processingTimeMs
-            ? `Processed in ${(result.processingTimeMs / 1000).toFixed(1)} seconds`
+            ? `Processed in ${(result.processingTimeMs / 1000).toFixed(1)}s`
             : loading
-              ? 'Processing label...'
-              : 'Ready for verification'
+              ? 'Processing…'
+              : 'Ready'
     )
     let reviewActive = $derived(result !== null || loading || error !== null)
 
-    // #region Handlers
-    function toggleLock(field: string) {
-        const s = new Set(locked)
-        if (s.has(field)) s.delete(field)
-        else s.add(field)
-        locked = s
-        saveLocked(s)
-    }
-
+    // ── File management ───────────────────────────────────────────────────────────
     function applyFiles(incoming: FileList | File[]) {
         const valid = Array.from(incoming).filter((f) =>
             ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
@@ -124,13 +85,8 @@
         }
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
         files = valid
-        if (files.length > 0) {
-            selectedFileIndex = 0
-            imagePreviewUrl = URL.createObjectURL(files[0])
-        } else {
-            selectedFileIndex = null
-            imagePreviewUrl = null
-        }
+        selectedFileIndex = 0
+        imagePreviewUrl = URL.createObjectURL(files[0])
         error = null
         result = null
         selectedReviewFieldName = null
@@ -188,31 +144,6 @@
         }
     }
 
-    async function smartPaste() {
-        let text: string
-        try {
-            text = await navigator.clipboard.readText()
-        } catch {
-            error = 'Clipboard access denied'
-            return
-        }
-        const parsed = parseSmartPaste(text)
-        if (parsed.brandName && !brandName) brandName = parsed.brandName
-        if (parsed.producerName && !producerName)
-            producerName = parsed.producerName
-        if (parsed.producerAddress && !producerAddress)
-            producerAddress = parsed.producerAddress
-        if (parsed.countryOfOrigin && !countryOfOrigin)
-            countryOfOrigin = parsed.countryOfOrigin
-        if (parsed.beverageType && !beverageType)
-            beverageType = parsed.beverageType as typeof beverageType
-        if (parsed.classType && !classType) classType = parsed.classType
-        if (parsed.alcoholContent && !alcoholContent)
-            alcoholContent = parsed.alcoholContent
-        if (parsed.netContents && !netContents) netContents = parsed.netContents
-        error = null
-    }
-
     function clearAll() {
         if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
         files = []
@@ -224,8 +155,8 @@
         countryOfOrigin = ''
         alcoholContent = ''
         netContents = ''
-        if (!locked.has('producerName')) producerName = ''
-        if (!locked.has('producerAddress')) producerAddress = ''
+        producerName = ''
+        producerAddress = ''
         result = null
         selectedReviewFieldName = null
         jobId = null
@@ -236,7 +167,7 @@
         es = null
     }
 
-    // #region Submission
+    // ── Submission ────────────────────────────────────────────────────────────────
     async function handleSubmit(e?: Event) {
         e?.preventDefault()
         await handleSubmitForFiles(files)
@@ -281,11 +212,7 @@
             })
             const data = await res.json()
             if (!res.ok) error = data.error ?? 'Verification failed'
-            else {
-                result = data as VerificationResult
-                saveHistories()
-            }
-            console.log('Verification result:', data)
+            else result = data as VerificationResult
         } catch {
             error = 'Network error'
         } finally {
@@ -320,20 +247,33 @@
                 status: 'pending' as BatchJobStatus,
             }))
             openEventSource(jobId!)
-            saveHistories()
         } catch {
             error = 'Network error'
             submitting = false
         }
     }
 
-    function saveHistories() {
-        saveHist('ttb_brands', brandName)
-        saveHist('ttb_producers', producerName)
-        saveHist('ttb_addresses', producerAddress)
-        brandHistory = loadHist('ttb_brands')
-        producerHistory = loadHist('ttb_producers')
-        addressHistory = loadHist('ttb_addresses')
+    // Re-run verification with application data, keeping existing result visible
+    async function handleCompare() {
+        if (files.length === 0 || loading || comparing) return
+        comparing = true
+        error = null
+        const formData = new FormData()
+        formData.append('image', await resizeForUpload(files[0]))
+        appendOptionalApplication(formData)
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await res.json()
+            if (!res.ok) error = data.error ?? 'Verification failed'
+            else result = data as VerificationResult
+        } catch {
+            error = 'Network error'
+        } finally {
+            comparing = false
+        }
     }
 
     function openEventSource(jid: string) {
@@ -360,56 +300,7 @@
     }
 
     function exportCsv() {
-        const fieldNames = Array.from(
-            new Set(
-                labels.flatMap(
-                    (l) => l.result?.fields.map((f) => f.fieldName) ?? []
-                )
-            )
-        )
-        const header = [
-            'filename',
-            'overallStatus',
-            'processingTimeMs',
-            ...fieldNames.flatMap((fn) => [
-                `${fn}_status`,
-                `${fn}_expected`,
-                `${fn}_found`,
-                `${fn}_notes`,
-            ]),
-        ]
-        const rows = labels.map((l) => {
-            const row = [
-                l.filename,
-                l.result?.overallStatus ?? l.status,
-                String(l.result?.processingTimeMs ?? ''),
-            ]
-            for (const fn of fieldNames) {
-                const f = l.result?.fields.find((f) => f.fieldName === fn)
-                row.push(
-                    f?.status ?? '',
-                    f?.expectedValue ?? '',
-                    f?.foundValue ?? '',
-                    f?.notes ?? ''
-                )
-            }
-            return row
-        })
-        const csv =
-            '﻿' +
-            [header, ...rows]
-                .map((row) =>
-                    row
-                        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-                        .join(',')
-                )
-                .join('\n')
-        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `batch-${jobId ?? 'results'}.csv`
-        a.click()
-        URL.revokeObjectURL(url)
+        exportBatchCsv(labels, jobId)
     }
 
     function onDropZoneKeydown(e: KeyboardEvent) {
@@ -418,253 +309,151 @@
         }
     }
 
-    // #region Debug
-    function mockVerification() {
-        // Pre-fill form so submit is not required
-        brandName = 'Old Tom Distillery'
-        producerName = 'Old Tom Distillery LLC'
-        beverageType = 'distilled_spirits'
-        classType = 'Bourbon Whiskey'
-        producerAddress = 'Louisville, KY 40201'
-        alcoholContent = '45% Alc./Vol.'
-        netContents = '750 mL'
-        countryOfOrigin = ''
-        imagePreviewUrl =
-            'https://placehold.co/600x800/f3f4f6/1d4ed8?text=Mock+Label'
-        result = {
-            overallStatus: 'warning',
-            fields: [
-                {
-                    fieldName: 'brandName',
-                    expectedValue: 'Old Tom Distillery',
-                    foundValue: 'Old Tom Distillery',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'producerName',
-                    expectedValue: 'Old Tom Distillery LLC',
-                    foundValue: 'Old Tom Distillery',
-                    status: 'warning',
-                    notes: 'Label omits "LLC" — minor variation, flag for review.',
-                },
-                {
-                    fieldName: 'beverageType',
-                    expectedValue: 'distilled_spirits',
-                    foundValue: 'Distilled Spirits',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'classType',
-                    expectedValue: 'Bourbon Whiskey',
-                    foundValue: 'Kentucky Straight Bourbon Whiskey',
-                    status: 'warning',
-                    notes: 'More specific designation than application data — review for consistency.',
-                },
-                {
-                    fieldName: 'producerAddress',
-                    expectedValue: 'Louisville, KY 40201',
-                    foundValue: 'Louisville, KY 40201',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'alcoholContent',
-                    expectedValue: '45% Alc./Vol.',
-                    foundValue: '45% Alc./Vol. (90 Proof)',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'netContents',
-                    expectedValue: '750 mL',
-                    foundValue: '750 mL',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'governmentWarning',
-                    expectedValue: 'GOVERNMENT WARNING: ...',
-                    foundValue:
-                        'GOVERNMENT WARNING: (1) According to the Surgeon General...',
-                    status: 'pass',
-                },
-                {
-                    fieldName: 'stateOfDistillation',
-                    expectedValue: null,
-                    foundValue: 'Kentucky',
-                    status: 'warning',
-                    notes: 'Label implies Kentucky distillation — verify address matches 27 CFR 5.212.',
-                },
-            ],
-            processingTimeMs: 2340,
-        }
+    // ── Debug ─────────────────────────────────────────────────────────────────────
+    function mockExtraction() {
+        ;({ imagePreviewUrl, result } = MOCK_EXTRACTION)
     }
-
+    function mockComparison() {
+        ;({ imagePreviewUrl, result } = MOCK_COMPARISON)
+    }
     function mockBatch() {
-        jobId = 'debug-' + Math.random().toString(36).slice(2, 7)
-        labels = [
-            {
-                labelId: '1',
-                filename: 'l1.png',
-                status: 'complete',
-                result: { overallStatus: 'pass', fields: [] },
+        applyMockBatch(
+            (id, lbs) => {
+                jobId = id
+                labels = lbs
             },
-            { labelId: '2', filename: 'l2.png', status: 'processing' },
-        ]
-        setTimeout(() => {
-            labels = labels.map((l) => ({
-                ...l,
-                status: 'complete',
-                result: { overallStatus: 'pass', fields: [] },
-            }))
-            jobDone = true
-        }, 2000)
+            (lbs) => {
+                labels = lbs
+                jobDone = true
+            }
+        )
     }
 
-    // #region Global Ctrl+V / Cmd+V paste shortcut
-    $effect(() => {
-        function onKeyDown(e: KeyboardEvent) {
-            if (!(e.key === 'v' && (e.ctrlKey || e.metaKey))) return
-            const tag = (document.activeElement?.tagName ?? '').toLowerCase()
-            if (['input', 'textarea', 'select'].includes(tag)) return
-            e.preventDefault()
-            smartPaste()
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    })
+    // ── Global Ctrl+V — fills application data fields from clipboard ──────────────
+    $effect(() => setupCtrlVHandler(() => void smartPaste()))
 
-    // #region Global Drag & Drop
-    $effect(() => {
-        let counter = 0
-        const enter = (e: DragEvent) => {
-            if (e.dataTransfer?.types.includes('Files')) {
-                counter++
-                globalDragActive = true
+    async function smartPaste() {
+        let text: string
+        try {
+            text = await navigator.clipboard.readText()
+        } catch {
+            error = 'Clipboard access denied'
+            return
+        }
+        const parsed = parseSmartPaste(text)
+        if (parsed.brandName && !brandName) brandName = parsed.brandName
+        if (parsed.producerName && !producerName)
+            producerName = parsed.producerName
+        if (parsed.producerAddress && !producerAddress)
+            producerAddress = parsed.producerAddress
+        if (parsed.countryOfOrigin && !countryOfOrigin)
+            countryOfOrigin = parsed.countryOfOrigin
+        if (parsed.beverageType && !beverageType)
+            beverageType = parsed.beverageType as typeof beverageType
+        if (parsed.classType && !classType) classType = parsed.classType
+        if (parsed.alcoholContent && !alcoholContent)
+            alcoholContent = parsed.alcoholContent
+        if (parsed.netContents && !netContents) netContents = parsed.netContents
+        error = null
+    }
+
+    // ── Global drag-and-drop ──────────────────────────────────────────────────────
+    $effect(() =>
+        setupGlobalDragAndDrop(
+            (files) => applyFiles(files),
+            (active) => {
+                globalDragActive = active
             }
-        }
-        const leave = () => {
-            counter--
-            if (counter <= 0) {
-                counter = 0
-                globalDragActive = false
-            }
-        }
-        const over = (e: DragEvent) => {
-            if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
-        }
-        const drop = (e: DragEvent) => {
-            e.preventDefault()
-            counter = 0
-            globalDragActive = false
-            if (e.dataTransfer?.files) applyFiles(e.dataTransfer.files)
-        }
-        window.addEventListener('dragenter', enter)
-        window.addEventListener('dragleave', leave)
-        window.addEventListener('dragover', over)
-        window.addEventListener('drop', drop)
-        return () => {
-            window.removeEventListener('dragenter', enter)
-            window.removeEventListener('dragleave', leave)
-            window.removeEventListener('dragover', over)
-            window.removeEventListener('drop', drop)
-        }
-    })
+        )
+    )
 </script>
 
-{#snippet statusIcon(name: string)}
-    {#if result}
-        {@const fr = fieldResultMap.get(name)}
-        {#if fr}
-            <span
-                class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
-            >
-                {#if fr.status === 'pass'}
-                    <svg
-                        class="h-4 w-4 text-green-500"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        ><path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                            clip-rule="evenodd"
-                        /></svg
-                    >
-                {:else if fr.status === 'warning'}
-                    <svg
-                        class="h-4 w-4 text-yellow-500"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        ><path
-                            fill-rule="evenodd"
-                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
-                            clip-rule="evenodd"
-                        /></svg
-                    >
-                {:else}
-                    <svg
-                        class="h-4 w-4 text-red-500"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        ><path
-                            fill-rule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                            clip-rule="evenodd"
-                        /></svg
-                    >
-                {/if}
-            </span>
-        {/if}
-    {/if}
-{/snippet}
-<!-- 
-<datalist id="brands-list">{#each brandHistory as h}<option value={h}></option>{/each}</datalist>
-<datalist id="producers-list">{#each producerHistory as h}<option value={h}></option>{/each}</datalist>
-<datalist id="addresses-list">{#each addressHistory as h}<option value={h}></option>{/each}</datalist> -->
-
-<main class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col">
-    <header class="mb-3 flex shrink-0 flex-col gap-3 border-b border-gray-200 pb-3 lg:flex-row lg:items-center lg:justify-between">
+<main
+    class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col"
+>
+    <header
+        class="mb-3 flex shrink-0 flex-col gap-3 border-b border-gray-200 pb-3 lg:flex-row lg:items-center lg:justify-between"
+    >
         <div>
             <h1 class="text-lg font-bold text-gray-950">
-                AI-Powered TTB Label Verification
+                TTB Label Verification
             </h1>
             <p class="mt-0.5 text-xs font-medium text-gray-600">
                 Verify alcohol beverage label compliance with TTB requirements.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700">
+            <span
+                class="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700"
+            >
                 {headerProcessingTime}
             </span>
+            <!-- #region Debug buttons -->
             {#if import.meta.env.DEV}
                 <Button
                     variant="outline"
                     size="sm"
                     class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                    onclick={mockVerification}>Debug: Mock Single</Button
+                    onclick={mockExtraction}>Debug: Extraction</Button
                 >
                 <Button
                     variant="outline"
                     size="sm"
                     class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                    onclick={mockBatch}>Debug: Mock Batch</Button
+                    onclick={mockComparison}>Debug: Comparison</Button
+                >
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                    onclick={mockBatch}>Debug: Batch</Button
                 >
             {/if}
+            <!-- #endregion -->
             {#if jobDone || result}
-                <Tooltip text="Clear everything and start fresh"
-                    ><Button variant="outline" size="sm" onclick={clearAll}
+                <Tooltip text="Clear everything and start fresh">
+                    <Button variant="outline" size="sm" onclick={clearAll}
                         >New Verification</Button
-                    ></Tooltip
-                >
+                    >
+                </Tooltip>
             {/if}
         </div>
     </header>
 
     {#if reviewActive}
+        <!-- Status banner -->
         <div class="mb-3 shrink-0">
-            <VerificationReview {result} {loading} {error} mode="banner" />
+            <VerificationReview
+                {result}
+                {loading}
+                {comparing}
+                {error}
+                mode="banner"
+            />
         </div>
 
+        <!-- Application data input — shown after extraction and after comparison (for re-comparing) -->
+        <!-- {#if result !== null && !loading}
+            <div class="mb-3 shrink-0">
+                <ApplicationDataInput
+                    bind:brandName
+                    bind:producerName
+                    bind:beverageType
+                    bind:classType
+                    bind:producerAddress
+                    bind:countryOfOrigin
+                    bind:alcoholContent
+                    bind:netContents
+                    loading={comparing}
+                    hasResult={true}
+                    onCompare={handleCompare}
+                />
+            </div>
+        {/if} -->
+
+        <!-- #region Main two-column review area -->
         <div
-            class="grid min-h-[560px] grid-cols-1 gap-3 lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
-            style="height: calc(100vh - 190px);"
+            class="grid min-h-[400px] grid-cols-1 gap-3 lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
         >
             <MediaPanel
                 {files}
@@ -672,7 +461,7 @@
                 {selectedFileIndex}
                 {jobId}
                 selectedFieldName={selectedReviewFieldName}
-                highlightFields={result?.fields.map((field) => field.fieldName) ?? []}
+                highlightFields={result?.fields.map((f) => f.fieldName) ?? []}
                 workstation
                 onFileInput={(e) => {
                     const fl = (e.currentTarget as HTMLInputElement).files
@@ -683,10 +472,10 @@
                 {onDropZoneKeydown}
                 onUseSingleFile={useSingleFile}
             />
-
             <VerificationReview
                 {result}
                 {loading}
+                {comparing}
                 {error}
                 mode="body"
                 onSelectedFieldChange={(fieldName) =>
@@ -694,6 +483,7 @@
             />
         </div>
 
+        <!-- #region Batch queue -->
         <div class="mt-3 shrink-0">
             <BatchQueue
                 {jobId}
@@ -707,9 +497,11 @@
                 onExportCsv={exportCsv}
             />
         </div>
+        <!-- #endregion -->
     {:else}
+        <!-- #region Pre-upload layout -->
         <div
-            class="grid grid-cols-1 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] gap-4 items-stretch flex-1 min-h-0"
+            class="grid grid-cols-1 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] gap-4 items-start flex-1"
         >
             <MediaPanel
                 {files}
@@ -727,34 +519,44 @@
                 onUseSingleFile={useSingleFile}
             />
 
-            <div class="space-y-6 min-w-0 h-full overflow-y-auto">
-                <section class="rounded-md border border-gray-300 bg-white p-4 shadow-sm">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="space-y-4 min-w-0">
+                <!-- Primary CTA -->
+                <section
+                    class="rounded-md border border-gray-300 bg-white p-4 shadow-sm"
+                >
+                    <div
+                        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
                         <div class="min-w-0">
-                            <h2 class="text-base font-bold text-gray-950">
-                                Start Label Review
+                            <h2 class="text-base font-semibold text-gray-950">
+                                Upload a Label to Begin
                             </h2>
-                            <p class="mt-1 text-sm font-medium text-gray-600">
-                                Upload a label image to extract fields and open the review table. Application data is optional.
+                            <p class="mt-1 text-sm text-gray-600">
+                                AI extracts all label fields automatically.
+                                Paste application data below before or after
+                                upload.
                             </p>
                         </div>
-                        <Button
-                            class="h-11 shrink-0 bg-blue-900 px-5 hover:bg-blue-800"
-                            disabled={files.length === 0 || loading || submitting}
-                            onclick={handleSubmit}
-                        >
-                            {#if loading || submitting}
-                                Analyzing…
-                            {:else if files.length > 1}
-                                Start Batch Review
-                            {:else}
-                                Analyze Label
-                            {/if}
-                        </Button>
+                        {#if files.length > 0}
+                            <Button
+                                class="h-11 shrink-0 bg-blue-900 px-5 hover:bg-blue-800"
+                                disabled={loading || submitting}
+                                onclick={handleSubmit}
+                            >
+                                {#if loading || submitting}
+                                    Analyzing…
+                                {:else if files.length > 1}
+                                    Start Batch Review
+                                {:else}
+                                    Analyze Label
+                                {/if}
+                            </Button>
+                        {/if}
                     </div>
                 </section>
 
-                <ComplianceForm
+                <!-- Optional: paste application data before upload -->
+                <ApplicationDataInput
                     bind:brandName
                     bind:producerName
                     bind:beverageType
@@ -763,20 +565,9 @@
                     bind:countryOfOrigin
                     bind:alcoholContent
                     bind:netContents
-                    {locked}
-                    {result}
-                    {jobId}
                     {loading}
-                    {submitting}
-                    {files}
-                    {brandHistory}
-                    {producerHistory}
-                    {addressHistory}
-                    {fieldResultMap}
-                    onToggleLock={toggleLock}
-                    onSubmit={handleSubmit}
-                    {statusIcon}
-                    compact
+                    hasResult={false}
+                    onCompare={handleCompare}
                 />
 
                 <BatchQueue
@@ -795,31 +586,4 @@
     {/if}
 </main>
 
-{#if globalDragActive}
-    <div
-        class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px]"
-    >
-        <div
-            class="rounded-2xl border-2 border-dashed border-blue-400 bg-white/95 px-16 py-12 text-center shadow-2xl"
-        >
-            <svg
-                class="mx-auto mb-4 h-14 w-14 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                /></svg
-            >
-            <p class="text-2xl font-semibold text-blue-700">
-                Drop anywhere to add labels
-            </p>
-            <p class="mt-2 text-sm text-blue-500 font-medium">
-                Multiple files supported
-            </p>
-        </div>
-    </div>
-{/if}
+<DragAndDrop {globalDragActive} />

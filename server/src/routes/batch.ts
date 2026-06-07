@@ -1,39 +1,12 @@
 import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
-import { z } from "zod";
 import { batchUploadLimiter } from "../middleware/rateLimiters";
+import { LabelApplicationSchema } from "../middleware/validation";
+import { upload } from "../middleware/upload";
 import { setBatchJob, getBatchJob } from "../services/redis";
 import { processBatch } from "../services/batchProcessor";
 import type { BatchJob, BatchLabelItem } from "../types/index";
 import type { ImageMediaType } from "../services/claude";
-
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPEG, PNG, and WebP images are accepted"));
-    }
-  },
-});
-
-const LabelApplicationSchema = z.object({
-  brandName: z.string().min(1),
-  productName: z.string().optional(),
-  classType: z.string().min(1),
-  alcoholContent: z.string().min(1),
-  netContents: z.string().min(1),
-  beverageType: z.enum(["beer", "wine", "distilled_spirits"]),
-  producerName: z.string().min(1),
-  producerAddress: z.string().min(1),
-  countryOfOrigin: z.string().optional(),
-  appellation: z.string().optional(),
-  vintageYear: z.string().optional(),
-}).partial();
 
 function withMulter(req: Request, res: Response, next: NextFunction) {
   upload.array("images", 50)(req, res, (err: unknown) => {

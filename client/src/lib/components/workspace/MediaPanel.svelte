@@ -120,8 +120,19 @@
                         class="{workstation
                             ? 'text-sm'
                             : 'text-base'} font-bold text-gray-950"
-                        >Label Image</CardTitle
                     >
+                        <div class="flex justify-between items-center gap-2">
+                            <span>Label Image</span>
+                            <!-- url of image. -->
+                            {#if imagePreviewUrl}
+                                <p
+                                    class="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                                >
+                                    {imagePreviewUrl?.imageName || 'No preview'}
+                                </p>
+                            {/if}
+                        </div>
+                    </CardTitle>
                     {#if files.length > 0 && selectedFileIndex !== null}
                         <p
                             class="truncate text-[11px] font-medium text-gray-500"
@@ -139,10 +150,11 @@
                 {/if}
             </div>
         </CardHeader>
+
         <CardContent
             class="{workstation
                 ? 'p-2'
-                : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden bg-gray-100"
+                : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden"
         >
             <div
                 class="mb-2 flex h-9 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-300 bg-gray-50 px-2 text-xs text-gray-600"

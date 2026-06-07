@@ -1,39 +1,13 @@
 import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
-import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { verifyLabel } from "../services/labelVerifier";
 import { verifyLimiter } from "../middleware/rateLimiters";
+import { LabelApplicationSchema } from "../middleware/validation";
+import { upload } from "../middleware/upload";
 import type { ImageMediaType } from "../services/claude";
 
-const VERIFY_TIMEOUT_MS = 20_000;
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowed: string[] = ["image/jpeg", "image/png", "image/webp"];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPEG, PNG, and WebP images are accepted"));
-    }
-  },
-});
-
-const LabelApplicationSchema = z.object({
-  brandName: z.string().min(1),
-  productName: z.string().optional(),
-  classType: z.string().min(1),
-  alcoholContent: z.string().min(1),
-  netContents: z.string().min(1),
-  beverageType: z.enum(["beer", "wine", "distilled_spirits"]),
-  producerName: z.string().min(1),
-  producerAddress: z.string().min(1),
-  countryOfOrigin: z.string().optional(),
-  appellation: z.string().optional(),
-  vintageYear: z.string().optional(),
-}).partial();
+const VERIFY_TIMEOUT_MS = 45_000;
 
 function withMulter(req: Request, res: Response, next: NextFunction) {
   upload.single("image")(req, res, (err: unknown) => {
