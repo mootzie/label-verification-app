@@ -24,6 +24,8 @@
         parseSmartPaste,
         buildOptionalApplicationData,
     } from '$lib/utils/application-builder'
+    import { FIELD_COLORS } from '$lib/utils/compliance-logic'
+    import type { HighlightRegion } from '$lib/components/workspace/MediaPanel.svelte'
     import { resizeForUpload } from '$lib/utils/image-resize'
     import {
         setupGlobalDragAndDrop,
@@ -64,7 +66,6 @@
     let labels = $state<BatchLabelItem[]>([])
     let jobDone = $state(false)
     let es: EventSource | null = null
-    let reviewDecisions = $state<ReviewDecisions>({})
 
     // ── Derived ──────────────────────────────────────────────────────────────────
     let completedCount = $derived(
@@ -82,6 +83,15 @@
               : 'Ready'
     )
     let reviewActive = $derived(result !== null || loading || error !== null)
+    let highlightRegions = $derived<HighlightRegion[]>(
+        (result?.fields ?? [])
+            .filter((f) => f.boundingBox !== undefined)
+            .map((f) => ({
+                fieldName: f.fieldName,
+                boundingBox: f.boundingBox!,
+                color: FIELD_COLORS[f.fieldName] ?? '#64748b',
+            }))
+    )
 
     // ── File management ───────────────────────────────────────────────────────────
     function applyFiles(incoming: FileList | File[]) {
@@ -109,12 +119,20 @@
         if (selectedFileIndex !== index) {
             if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
             selectedFileIndex = index
-            imagePreviewUrl = URL.createObjectURL(files[index])
+            // files[index] may be undefined for debug mocks or batch-only flows
+            imagePreviewUrl = files[index]
+                ? URL.createObjectURL(files[index])
+                : imagePreviewUrl
         }
         const labelResult = labels[index]?.result
         if (labelResult) {
             result = labelResult
             selectedReviewFieldName = null
+            error = null
+        } else if (labels[index]) {
+            // Item exists but result not ready yet — clear stale review so the
+            // panel doesn't show the previous label's data
+            result = null
             error = null
         }
     }
@@ -212,7 +230,6 @@
         result = null
         selectedReviewFieldName = null
         error = null
-        reviewDecisions = {}
         // Set queue entry so the BatchQueue shows this label immediately
         jobId = syntheticId
         jobDone = false
@@ -357,9 +374,8 @@
         }
     }
 
-    function handleMarkAllReviewed(decisions: ReviewDecisions) {
-        reviewDecisions = decisions
-        // Mark the current queue item as reviewed (map to 'complete' since BatchLabelItem has no 'reviewed' status)
+    function handleMarkAllReviewed(_decisions: ReviewDecisions) {
+        // Mark the current queue item as complete in the queue
         labels = labels.map((l, i) =>
             i === (selectedFileIndex ?? 0) ? { ...l, status: 'complete' } : l
         )
@@ -374,7 +390,6 @@
     // ── Debug ─────────────────────────────────────────────────────────────────────
     function mockExtraction() {
         ;({ imagePreviewUrl, result } = MOCK_EXTRACTION)
-        reviewDecisions = {}
         const id = `debug-extraction-${Date.now()}`
         jobId = id
         jobDone = true
@@ -389,7 +404,6 @@
     }
     function mockComparison() {
         ;({ imagePreviewUrl, result } = MOCK_COMPARISON)
-        reviewDecisions = {}
         const id = `debug-comparison-${Date.now()}`
         jobId = id
         jobDone = true
@@ -557,6 +571,7 @@
                 {jobId}
                 selectedFieldName={selectedReviewFieldName}
                 highlightFields={result?.fields.map((f) => f.fieldName) ?? []}
+                {highlightRegions}
                 workstation
                 onFileInput={(e) => {
                     const fl = (e.currentTarget as HTMLInputElement).files
@@ -708,7 +723,7 @@
                             class="mx-4 mb-4 mt-5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
                         >
                             <InfoIcon size={18} className="shrink-0" />
-                            Upload starts the review workflow.
+                            Uploading a label starts the review workflow.
                         </div>
                     </section>
 

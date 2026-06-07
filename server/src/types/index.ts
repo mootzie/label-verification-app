@@ -1,11 +1,19 @@
 export type FieldStatus = "pass" | "warning" | "fail" | "not_found";
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface FieldResult {
   fieldName: string;
   expectedValue: string | null;
   foundValue: string | null;
   status: FieldStatus;
   notes?: string;
+  boundingBox?: BoundingBox;
 }
 
 export type OverallStatus = "pass" | "fail" | "warning";

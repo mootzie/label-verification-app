@@ -38,6 +38,18 @@ export const STATUS_BORDER: Record<string, string> = {
     not_found: 'border-gray-400 focus:border-blue-500 focus:ring-blue-500',
 }
 
+export const FIELD_COLORS: Record<string, string> = {
+    brandName: '#3b82f6',
+    producerName: '#f59e0b',
+    classType: '#22c55e',
+    beverageType: '#06b6d4',
+    alcoholContent: '#8b5cf6',
+    netContents: '#eab308',
+    producerAddress: '#14b8a6',
+    governmentWarning: '#ef4444',
+    stateOfDistillation: '#f97316',
+}
+
 export function borderCls(
     fieldResultMap: Map<string, FieldResult>,
     fieldName: string

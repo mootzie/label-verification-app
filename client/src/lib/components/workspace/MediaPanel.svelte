@@ -7,6 +7,13 @@
     } from '$lib/components/ui/card'
     import { FileTextIcon, UploadIcon } from '$lib/components/ui/icon'
     import { formatFieldName } from '$lib/utils/compliance-logic'
+    import type { BoundingBox } from '$shared/index'
+
+    export type HighlightRegion = {
+        fieldName: string
+        boundingBox: BoundingBox
+        color: string
+    }
 
     let {
         files,
@@ -17,6 +24,7 @@
         workstation = false,
         blankState = false,
         highlightFields = [],
+        highlightRegions = [],
         hoverScale = 2.5,
         onFileInput,
         onSelectFile,
@@ -32,6 +40,7 @@
         workstation?: boolean
         blankState?: boolean
         highlightFields?: string[]
+        highlightRegions?: HighlightRegion[]
         hoverScale?: number
         onFileInput: (e: Event) => void
         onSelectFile: (i: number) => void
@@ -44,6 +53,8 @@
     let zoomOrigin = $state('50% 50%')
     let highlightsEnabled = $state(false)
     let autoEnabledHighlights = $state(false)
+    let wrapperWidth = $state(0)
+    let wrapperHeight = $state(0)
 
     let highlightsAvailable = $derived(
         highlightFields.length > 0 || selectedFieldName !== null
@@ -89,7 +100,7 @@
                         >
                             <span class="inline-flex items-center gap-2">
                                 <FileTextIcon
-                                    size={20}
+                                    size={32}
                                     className={blankState
                                         ? 'text-blue-700'
                                         : 'text-gray-500'}
@@ -204,16 +215,43 @@
                         onmouseleave={() => (isHovering = false)}
                         onmousemove={handleMouseMove}
                     >
-                        <img
-                            src={imagePreviewUrl}
-                            alt="Preview"
-                            class="absolute left-1/2 top-1/2 max-h-full max-w-full origin-center transition-transform duration-200 ease-out"
-                            style="transform: translate(-50%, -50%) scale({isHovering
-                                ? hoverScale
-                                : 1}); transform-origin: {zoomOrigin};"
-                            draggable="false"
-                        />
-                        {#if selectedFieldName && highlightsEnabled}
+                        <div
+                            class="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
+                            style="transform: translate(-50%, -50%) scale({isHovering ? hoverScale : 1}); transform-origin: {zoomOrigin}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"
+                            bind:clientWidth={wrapperWidth}
+                            bind:clientHeight={wrapperHeight}
+                        >
+                            <div style="position: relative; display: inline-block; line-height: 0; max-width: {wrapperWidth}px; max-height: {wrapperHeight}px;">
+                                <img
+                                    src={imagePreviewUrl}
+                                    alt="Preview"
+                                    style="display: block; max-width: {wrapperWidth}px; max-height: {wrapperHeight}px;"
+                                    draggable="false"
+                                />
+                                {#if highlightsEnabled && highlightRegions.length > 0 && wrapperWidth > 0}
+                                    <div style="position: absolute; inset: 0; pointer-events: none;">
+                                        {#each highlightRegions as region}
+                                            {@const isSelected = region.fieldName === selectedFieldName}
+                                            <div
+                                                style="
+                                                    position: absolute;
+                                                    left: {region.boundingBox.x * 100}%;
+                                                    top: {region.boundingBox.y * 100}%;
+                                                    width: {region.boundingBox.width * 100}%;
+                                                    height: {region.boundingBox.height * 100}%;
+                                                    border: {isSelected ? '3px' : '2px'} solid {region.color};
+                                                    background-color: {region.color}{isSelected ? '33' : '15'};
+                                                    box-shadow: {isSelected ? `0 0 0 1px ${region.color}` : 'none'};
+                                                    border-radius: 2px;
+                                                "
+                                                aria-hidden="true"
+                                            ></div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                        {#if selectedFieldName && highlightsEnabled && highlightRegions.find(r => r.fieldName === selectedFieldName) === undefined}
                             <div
                                 class="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded border border-amber-300 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-sm"
                             >

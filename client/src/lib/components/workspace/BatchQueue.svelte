@@ -125,7 +125,9 @@
             </div>
         </CardHeader>
         <CardContent class="bg-white p-3">
-            <div class="flex min-h-[6.5rem] overflow-hidden rounded-md border border-gray-200 bg-white">
+            <div
+                class="flex min-h-[6.5rem] overflow-hidden rounded-md border border-gray-200 bg-white"
+            >
                 <div
                     class="flex w-[12.5rem] shrink-0 flex-col justify-between border-r border-gray-200 bg-gray-50 p-3"
                 >
@@ -198,7 +200,7 @@
                                         </div>
                                     {/if}
                                     <span
-                                        class="absolute bottom-1 right-1 rounded-full bg-white/95 p-0.5 shadow"
+                                        class="absolute bottom-1 right-1 rounded-full shadow"
                                     >
                                         {#if label.status === 'complete' && label.result}
                                             <Badge
@@ -227,24 +229,13 @@
                                                     : STATUS_LABEL[
                                                           label.status
                                                       ]}
-                                        </Badge>
-                                    {/if}
+                                            </Badge>
+                                        {/if}
                                     </span>
                                 </div>
                             </button>
                         </div>
                     {/each}
-                </div>
-                <div
-                    class="flex w-[8.5rem] shrink-0 items-center justify-center border-l border-gray-200 bg-white p-3"
-                >
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onclick={() => selectItem(selectedFileIndex ?? 0)}
-                    >
-                        View Selected
-                    </Button>
                 </div>
             </div>
         </CardContent>

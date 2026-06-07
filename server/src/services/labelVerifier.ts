@@ -10,12 +10,20 @@ import { callClaudeVision, type ImageMediaType } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 import { TTB_REQUIREMENTS, CFR_CITATIONS } from "../constants/requirements";
 
+export const BoundingBoxSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  width: z.number().min(0).max(1),
+  height: z.number().min(0).max(1),
+});
+
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
   expectedValue: z.string().nullable(),
   foundValue: z.string().nullable(),
   status: z.enum(["pass", "warning", "fail", "not_found"]),
   notes: z.string(),
+  boundingBox: BoundingBoxSchema.optional(),
 });
 
 export const VerificationResultSchema = z.object({
@@ -38,10 +46,13 @@ Response schema:
       "expectedValue": string | null,
       "foundValue": string | null,
       "status": "pass" | "warning" | "fail" | "not_found",
-      "notes": string
+      "notes": string,
+      "boundingBox": { "x": number, "y": number, "width": number, "height": number } | undefined
     }
   ]
 }
+
+BOUNDING BOXES: For fields with status "warning" or "fail" only, include a boundingBox with normalized coordinates (0.0 to 1.0 relative to image dimensions), where x and y are the top-left corner. Omit boundingBox for "pass" and "not_found" fields, and omit it for any field you cannot locate precisely.
 
 FIELD VERIFICATION RULES:
 
@@ -51,7 +62,7 @@ alcoholContent: Compare numeric value only. "45%", "45% Alc./Vol.", and "45% Alc
 
 governmentWarning: The label must contain this exact text:
 ${GOVERNMENT_WARNING}
-"GOVERNMENT WARNING:" must appear in all capital letters. Any deviation in capitalization is a fail. Bold formatting is not required by regulation. Any truncation or omission → "fail".
+"GOVERNMENT WARNING:" must appear in all capital letters. Any deviation in capitalization is a fail. Bold formatting is not required by regulation. Any truncation or omission → "fail". 
 
 All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". If no application value is provided, report the extracted label value with expectedValue null and status "warning" only when the field needs agent review or a mandatory requirement appears missing.
 

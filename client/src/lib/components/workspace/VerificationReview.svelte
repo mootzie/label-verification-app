@@ -1,7 +1,11 @@
 <script lang="ts">
     import { Badge } from '$lib/components/ui/badge'
     import { Button } from '$lib/components/ui/button'
-    import { formatFieldName, STATUS_LABEL } from '$lib/utils/compliance-logic'
+    import {
+        formatFieldName,
+        STATUS_LABEL,
+        FIELD_COLORS,
+    } from '$lib/utils/compliance-logic'
     import type {
         ReviewDecision,
         ReviewDecisions,
@@ -34,18 +38,6 @@
 
     const GOVERNMENT_WARNING_REQUIRED =
         'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.'
-
-    const FIELD_COLORS: Record<string, string> = {
-        brandName: '#3b82f6',
-        producerName: '#f59e0b',
-        classType: '#22c55e',
-        beverageType: '#06b6d4',
-        alcoholContent: '#8b5cf6',
-        netContents: '#eab308',
-        producerAddress: '#14b8a6',
-        governmentWarning: '#ef4444',
-        stateOfDistillation: '#f97316',
-    }
 
     // const INSPECTOR_TONE: Record<FieldStatus, string> = {
     //     pass: 'border-green-500 bg-green-50/60',
@@ -418,8 +410,6 @@
                                     >Application (Provided)</th
                                 >
                                 <th class="w-[13%] px-3 py-2">Status</th>
-                                <!-- <th class="w-[5%] px-2 py-2 text-right">Edit</th
-                                > -->
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -431,7 +421,7 @@
                                     expandedFieldName === field.fieldName}
                                 {@const color = fieldColor(field.fieldName)}
                                 <tr
-                                    class="{selected
+                                    class="hover:cursor-pointer {selected
                                         ? 'bg-blue-50'
                                         : 'bg-white hover:bg-slate-50'} align-top transition-colors focus-within:bg-blue-50"
                                     style="box-shadow: inset 3px 0 0 {selected
@@ -461,9 +451,10 @@
                                         </button>
                                     </td>
                                     <td
-                                        class="px-3 py-1.5 text-xs leading-5 text-gray-800"
+                                        class="px-3 py-1.5 text-xs leading-5 text-gray-800 flex items-center h-full"
                                     >
-                                        <span class="line-clamp-2 break-words"
+                                        <span
+                                            class="line-clamp-2 break-words h-full flex items-center"
                                             >{displayValue(
                                                 field.foundValue
                                             )}</span
@@ -472,70 +463,59 @@
                                     <td class="px-3 py-1.5 text-xs leading-5">
                                         {#if field.expectedValue}
                                             <span
-                                                class="line-clamp-2 break-words text-gray-800"
+                                                class="line-clamp-2 break-words text-gray-800 flex items-center h-full"
                                                 >{field.expectedValue}</span
                                             >
                                         {:else}
-                                            <span class="italic text-gray-400"
+                                            <span
+                                                class="italic text-gray-400 flex items-center h-full"
                                                 >Not provided</span
                                             >
                                         {/if}
                                     </td>
                                     <td class="px-3 py-1.5">
-                                        <Badge
-                                            variant={field.status}
-                                            class="gap-1 border-0 px-2 py-0.5 text-[11px]"
-                                        >
-                                            <span aria-hidden="true"
-                                                >{statusGlyph(
-                                                    field.status
-                                                )}</span
+                                        <div class="flex items-center h-full">
+                                            <Badge
+                                                variant={field.status}
+                                                class="gap-1 border-0 px-2 py-0.5 text-[11px]"
                                             >
-                                            {STATUS_LABEL[field.status]}
-                                        </Badge>
-                                        {#if decisionFor(field.fieldName) !== 'unreviewed'}
-                                            <div class="mt-1">
-                                                <span
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold {decisionFor(
-                                                        field.fieldName
-                                                    ) === 'escalated'
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : decisionFor(
-                                                                field.fieldName
-                                                            ) ===
-                                                            'accepted_variation'
-                                                          ? 'bg-amber-100 text-amber-700'
-                                                          : 'bg-green-100 text-green-700'}"
+                                                <span aria-hidden="true"
+                                                    >{statusGlyph(
+                                                        field.status
+                                                    )}</span
                                                 >
-                                                    {decisionFor(
-                                                        field.fieldName
-                                                    ) === 'accepted_variation'
-                                                        ? 'Accepted'
-                                                        : decisionFor(
-                                                                field.fieldName
-                                                            ) === 'escalated'
-                                                          ? 'Escalated'
-                                                          : 'Reviewed'}
-                                                </span>
-                                            </div>
-                                        {/if}
+                                                {STATUS_LABEL[field.status]}
+                                            </Badge>
+                                            {#if decisionFor(field.fieldName) !== 'unreviewed'}
+                                                <div class="mt-1">
+                                                    <span
+                                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold {decisionFor(
+                                                            field.fieldName
+                                                        ) === 'escalated'
+                                                            ? 'bg-red-100 text-red-700'
+                                                            : decisionFor(
+                                                                    field.fieldName
+                                                                ) ===
+                                                                'accepted_variation'
+                                                              ? 'bg-amber-100 text-amber-700'
+                                                              : 'bg-green-100 text-green-700'}"
+                                                    >
+                                                        {decisionFor(
+                                                            field.fieldName
+                                                        ) ===
+                                                        'accepted_variation'
+                                                            ? 'Accepted'
+                                                            : decisionFor(
+                                                                    field.fieldName
+                                                                ) ===
+                                                                'escalated'
+                                                              ? 'Escalated'
+                                                              : 'Reviewed'}
+                                                    </span>
+                                                </div>
+                                            {/if}
+                                        </div>
                                     </td>
-                                    <!-- <td class="px-2 py-1.5 text-right">
-                                        <button
-                                            type="button"
-                                            class="rounded bg-transparent px-2 py-1 text-xs font-bold text-gray-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                                            aria-expanded={expanded}
-                                            aria-label="{expanded
-                                                ? 'Collapse'
-                                                : 'Expand'} {formatFieldName(
-                                                field.fieldName
-                                            )} review row"
-                                            onclick={() =>
-                                                toggleExpanded(field)}
-                                        >
-                                            {expanded ? '⌃' : '⌄'}
-                                        </button>
-                                    </td> -->
                                 </tr>
                                 {#if expanded}
                                     {@const draft = draftFor(field)}
@@ -545,18 +525,18 @@
                                     >
                                         <td
                                             colspan="4"
-                                            class="border-t px-3 py-2"
+                                            class="border-t px-4 py-4"
                                         >
                                             <div
-                                                class="grid gap-2 lg:grid-cols-[1fr_1fr_1.1fr_auto]"
+                                                class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]"
                                             >
                                                 <label class="block">
                                                     <span
-                                                        class="mb-1 block text-[10px] font-bold uppercase text-gray-500"
-                                                        >Edit Extracted Value</span
+                                                        class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
+                                                        >Extracted Value</span
                                                     >
                                                     <textarea
-                                                        class="h-20 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                                         value={draft.foundValue}
                                                         oninput={(e) =>
                                                             updateDraft(
@@ -567,7 +547,7 @@
                                                             )}
                                                     ></textarea>
                                                 </label>
-                                                <label class="block">
+                                                <!-- <label class="block">
                                                     <span
                                                         class="mb-1 block text-[10px] font-bold uppercase text-gray-500"
                                                         >Edit Application Value</span
@@ -583,14 +563,14 @@
                                                                     .value
                                                             )}
                                                     ></textarea>
-                                                </label>
+                                                </label> -->
                                                 <label class="block">
                                                     <span
-                                                        class="mb-1 block text-[10px] font-bold uppercase text-gray-500"
+                                                        class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
                                                         >Review Notes</span
                                                     >
                                                     <textarea
-                                                        class="h-20 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                                         value={draft.note}
                                                         placeholder="Add review comment"
                                                         oninput={(e) =>
@@ -603,7 +583,7 @@
                                                     ></textarea>
                                                 </label>
                                                 <div
-                                                    class="flex min-w-[9rem] flex-col justify-end gap-2"
+                                                    class="flex flex-col justify-center gap-2"
                                                 >
                                                     {#if field.status === 'warning' || field.status === 'fail'}
                                                         <Button
@@ -656,7 +636,7 @@
                                                     {/if}
                                                 </div>
                                             </div>
-                                            {#if field.fieldName === 'governmentWarning' || (governmentWarning !== null && governmentWarning.status !== 'pass')}
+                                            <!-- {#if field.fieldName === 'governmentWarning' || (governmentWarning !== null && governmentWarning.status !== 'pass')}
                                                 <div
                                                     class="mt-2 grid gap-2 border-t border-gray-200 pt-2 lg:grid-cols-2"
                                                 >
@@ -682,7 +662,7 @@
                                                         {GOVERNMENT_WARNING_REQUIRED}
                                                     </p>
                                                 </div>
-                                            {/if}
+                                            {/if} -->
                                         </td>
                                     </tr>
                                 {/if}
@@ -691,160 +671,6 @@
                     </table>
                 </div>
             {/if}
-
-            <!-- <div
-                class={`h-[190px] shrink-0 overflow-hidden border-l-4 border-t px-3 py-2 ${selectedField ? INSPECTOR_TONE[selectedField.status] : 'border-gray-300 bg-gray-50'}`}
-                style="border-left-color: {selectedField
-                    ? fieldColor(selectedField.fieldName)
-                    : undefined};"
-            >
-                {#if selectedField}
-                    <div class="flex h-full min-h-0 flex-col gap-2">
-                        <div
-                            class="flex shrink-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between"
-                        >
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <h3
-                                        class="truncate text-sm font-bold text-gray-950"
-                                    >
-                                        {formatFieldName(
-                                            selectedField.fieldName
-                                        )}
-                                    </h3>
-                                    <Badge
-                                        variant={selectedField.status}
-                                        class="border-0 px-2 py-0.5 text-[11px]"
-                                    >
-                                        {STATUS_LABEL[selectedField.status]}
-                                    </Badge>
-                                </div>
-                                <p
-                                    class="mt-0.5 truncate text-xs font-medium text-gray-700"
-                                >
-                                    {suggestedAction(selectedField)}
-                                </p>
-                            </div>
-                            <div class="flex shrink-0 flex-wrap gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled
-                                    title="Source region unavailable"
-                                >
-                                    View in Document
-                                </Button>
-                                {#if selectedField.status === 'warning'}
-                                    <Button variant="outline" size="sm"
-                                        >Accept Variation</Button
-                                    >
-                                {/if}
-                                {#if selectedField.status !== 'pass'}
-                                    <Button
-                                        size="sm"
-                                        class="bg-blue-900 hover:bg-blue-800"
-                                        >Escalate</Button
-                                    >
-                                {:else}
-                                    <Button
-                                        size="sm"
-                                        class="bg-blue-900 hover:bg-blue-800"
-                                        >Mark as Reviewed</Button
-                                    >
-                                {/if}
-                            </div>
-                        </div>
-
-                        <div
-                            class="grid min-h-0 flex-1 gap-2 overflow-hidden lg:grid-cols-[1fr_1fr_1.15fr]"
-                        >
-                            <div
-                                class="overflow-hidden rounded border border-current/15 bg-white/70 p-2"
-                            >
-                                <p
-                                    class="mb-1 text-[10px] font-bold uppercase text-gray-500"
-                                >
-                                    Label Value
-                                </p>
-                                <p
-                                    class="line-clamp-4 break-words text-xs font-medium leading-5 text-gray-900"
-                                >
-                                    {compactValue(selectedField.foundValue)}
-                                </p>
-                            </div>
-                            <div
-                                class="overflow-hidden rounded border border-current/15 bg-white/70 p-2"
-                            >
-                                <p
-                                    class="mb-1 text-[10px] font-bold uppercase text-gray-500"
-                                >
-                                    Application Value
-                                </p>
-                                {#if selectedField.expectedValue}
-                                    <p
-                                        class="line-clamp-4 break-words text-xs font-medium leading-5 text-gray-900"
-                                    >
-                                        {compactValue(
-                                            selectedField.expectedValue
-                                        )}
-                                    </p>
-                                {:else}
-                                    <p class="text-xs italic text-gray-400">
-                                        Not provided
-                                    </p>
-                                {/if}
-                            </div>
-                            <div
-                                class="overflow-hidden rounded border border-current/15 bg-white/70 p-2"
-                            >
-                                <p
-                                    class="mb-1 text-[10px] font-bold uppercase text-gray-500"
-                                >
-                                    Why Flagged
-                                </p>
-                                <p
-                                    class="line-clamp-4 break-words text-xs leading-5 text-gray-800"
-                                >
-                                    {issueReason(selectedField)}
-                                </p>
-                            </div>
-                        </div>
-
-                        {#if showGovernmentDetails()}
-                            <div
-                                class="grid shrink-0 gap-2 border-t border-current/15 pt-2 lg:grid-cols-2"
-                            >
-                                <p
-                                    class="line-clamp-2 text-[11px] leading-4 text-gray-800"
-                                >
-                                    <span
-                                        class="font-bold uppercase text-gray-500"
-                                        >Detected:</span
-                                    >
-                                    {normalizedWarning(
-                                        governmentWarning?.foundValue
-                                    ) || 'Not found on label'}
-                                </p>
-                                <p
-                                    class="line-clamp-2 text-[11px] leading-4 text-gray-800"
-                                >
-                                    <span
-                                        class="font-bold uppercase text-gray-500"
-                                        >Required:</span
-                                    >
-                                    {GOVERNMENT_WARNING_REQUIRED}
-                                </p>
-                            </div>
-                        {/if}
-                    </div>
-                {:else}
-                    <div
-                        class="flex h-full items-center text-sm font-medium text-gray-600"
-                    >
-                        Select a result row to review field details.
-                    </div>
-                {/if}
-            </div> -->
         {:else if loading}
             <div class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5">
                 <div class="h-3 w-40 animate-pulse rounded bg-gray-200"></div>

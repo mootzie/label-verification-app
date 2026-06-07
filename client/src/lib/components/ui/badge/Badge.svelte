@@ -31,7 +31,7 @@
 
 <span
     class={cn(
-        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap',
+        'inline-flex items-center rounded-full px-2.5 py-1 text-sm whitespace-nowrap tracking-wide',
         variants[variant],
         className
     )}
