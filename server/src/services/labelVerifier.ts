@@ -2,6 +2,7 @@ import { z } from "zod";
 import type {
   FieldResult,
   LabelApplication,
+  LabelApplicationInput,
   OverallStatus,
   VerificationResult,
 } from "../types/index";
@@ -30,7 +31,7 @@ export const VerificationResultSchema = z.object({
 
 const PROMPT_BASE = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance verifier.
 
-Analyze the provided label image against the application data. Return ONLY valid JSON — no prose, no markdown, no code fences, no backticks.
+Analyze the provided label image. If optional application data is provided, compare it against the extracted label text. If application data is not provided for a field, extract the label value and set expectedValue to null. Return ONLY valid JSON — no prose, no markdown, no code fences, no backticks.
 
 Response schema:
 {
@@ -56,7 +57,7 @@ governmentWarning: The label must contain this exact text:
 ${GOVERNMENT_WARNING}
 "GOVERNMENT WARNING:" must appear in all capital letters. Any deviation in capitalization is a fail. Bold formatting is not required by regulation. Any truncation or omission → "fail".
 
-All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". Only verify optional fields if present in the application data.
+All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". If no application value is provided, report the extracted label value with expectedValue null and status "warning" only when the field needs agent review or a mandatory requirement appears missing.
 
 IMAGE QUALITY: If a field is affected by glare, angle, or blur, set status to "warning" and note the quality issue in notes.
 
@@ -70,8 +71,18 @@ OVERALL STATUS:
 - "fail" — any field is "fail" or "not_found"`;
 
 function buildRequirementsBlock(
-  beverageType: LabelApplication["beverageType"],
+  beverageType?: LabelApplication["beverageType"],
 ): string {
+  if (!beverageType) {
+    return `
+
+TTB MANDATORY REQUIREMENTS:
+Identify the beverage type from the label when possible. Verify mandatory fields visible on the label, including brandName, classType or product identity, alcoholContent where required, netContents, producerName, producerAddress, and governmentWarning. If a beverage-specific rule cannot be determined from the image, set the affected field to "warning" and explain what needs agent review.
+
+CFR CITATIONS:
+Include the applicable CFR citation in the notes field of any FieldResult where a violation is found when you can determine it from the label context.`;
+  }
+
   const reqs = TTB_REQUIREMENTS[beverageType];
   const label = beverageType.replace(/_/g, " ").toUpperCase();
 
@@ -108,13 +119,13 @@ Include the applicable CFR citation in the notes field of any FieldResult where 
 }
 
 function buildSystemPrompt(
-  beverageType: LabelApplication["beverageType"],
+  beverageType?: LabelApplication["beverageType"],
 ): string {
   return PROMPT_BASE + buildRequirementsBlock(beverageType) + PROMPT_FOOTER;
 }
 
 function buildStrictSystemPrompt(
-  beverageType: LabelApplication["beverageType"],
+  beverageType?: LabelApplication["beverageType"],
 ): string {
   return (
     buildSystemPrompt(beverageType) +
@@ -145,7 +156,7 @@ export function tryParse(raw: string): VerificationResult | null {
 export async function verifyLabel(
   imageBase64: string,
   mediaType: ImageMediaType,
-  application: LabelApplication,
+  application: LabelApplicationInput = {},
   signal?: AbortSignal,
 ): Promise<VerificationResult> {
   const start = Date.now();

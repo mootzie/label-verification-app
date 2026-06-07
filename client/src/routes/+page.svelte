@@ -20,7 +20,7 @@
     import { loadHist, saveHist } from '$lib/utils/history'
     import {
         parseSmartPaste,
-        buildApplicationData,
+        buildOptionalApplicationData,
     } from '$lib/utils/application-builder'
     import { OVERALL_LABEL } from '$lib/utils/compliance-logic'
     import { resizeForUpload } from '$lib/utils/image-resize'
@@ -137,13 +137,21 @@
         jobId = null
         labels = []
         jobDone = false
+        void handleSubmitForFiles(valid)
     }
 
     function selectFile(index: number) {
-        if (selectedFileIndex === index) return
-        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
-        selectedFileIndex = index
-        imagePreviewUrl = URL.createObjectURL(files[index])
+        if (selectedFileIndex !== index) {
+            if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+            selectedFileIndex = index
+            imagePreviewUrl = URL.createObjectURL(files[index])
+        }
+        const labelResult = labels[index]?.result
+        if (labelResult) {
+            result = labelResult
+            selectedReviewFieldName = null
+            error = null
+        }
     }
 
     function useSingleFile() {
@@ -231,32 +239,41 @@
     // #region Submission
     async function handleSubmit(e?: Event) {
         e?.preventDefault()
-        if (files.length === 1) await handleSingleSubmit()
-        else await handleBatchSubmit()
+        await handleSubmitForFiles(files)
     }
 
-    async function handleSingleSubmit() {
+    async function handleSubmitForFiles(targetFiles: File[]) {
+        if (targetFiles.length === 0 || loading || submitting) return
+        if (targetFiles.length === 1) await handleSingleSubmit(targetFiles)
+        else await handleBatchSubmit(targetFiles)
+    }
+
+    function appendOptionalApplication(fd: FormData) {
+        const application = buildOptionalApplicationData({
+            brandName,
+            classType,
+            beverageType,
+            alcoholContent,
+            netContents,
+            producerName,
+            producerAddress,
+            countryOfOrigin,
+        })
+        if (Object.keys(application).length > 0) {
+            fd.append('application', JSON.stringify(application))
+        }
+    }
+
+    async function handleSingleSubmit(targetFiles = files) {
+        const image = targetFiles[0]
+        if (!image) return
         loading = true
         result = null
         selectedReviewFieldName = null
         error = null
         const formData = new FormData()
-        formData.append('image', await resizeForUpload(files[0]))
-        formData.append(
-            'application',
-            JSON.stringify(
-                buildApplicationData({
-                    brandName,
-                    classType,
-                    beverageType,
-                    alcoholContent,
-                    netContents,
-                    producerName,
-                    producerAddress,
-                    countryOfOrigin,
-                })
-            )
-        )
+        formData.append('image', await resizeForUpload(image))
+        appendOptionalApplication(formData)
         try {
             const res = await fetch('/api/verify', {
                 method: 'POST',
@@ -276,28 +293,15 @@
         }
     }
 
-    async function handleBatchSubmit() {
+    async function handleBatchSubmit(targetFiles = files) {
+        if (targetFiles.length === 0) return
         submitting = true
         selectedReviewFieldName = null
         error = null
         const fd = new FormData()
-        const resized = await Promise.all(files.map(resizeForUpload))
+        const resized = await Promise.all(targetFiles.map(resizeForUpload))
         resized.forEach((f) => fd.append('images', f))
-        fd.append(
-            'application',
-            JSON.stringify(
-                buildApplicationData({
-                    brandName,
-                    classType,
-                    beverageType,
-                    alcoholContent,
-                    netContents,
-                    producerName,
-                    producerAddress,
-                    countryOfOrigin,
-                })
-            )
-        )
+        appendOptionalApplication(fd)
         try {
             const res = await fetch('/api/batch/upload', {
                 method: 'POST',
@@ -310,7 +314,7 @@
                 return
             }
             jobId = data.jobId
-            labels = files.map((f, i) => ({
+            labels = targetFiles.map((f, i) => ({
                 labelId: `${jobId}-${i}`,
                 filename: f.name,
                 status: 'pending' as BatchJobStatus,
@@ -724,6 +728,32 @@
             />
 
             <div class="space-y-6 min-w-0 h-full overflow-y-auto">
+                <section class="rounded-md border border-gray-300 bg-white p-4 shadow-sm">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold text-gray-950">
+                                Start Label Review
+                            </h2>
+                            <p class="mt-1 text-sm font-medium text-gray-600">
+                                Upload a label image to extract fields and open the review table. Application data is optional.
+                            </p>
+                        </div>
+                        <Button
+                            class="h-11 shrink-0 bg-blue-900 px-5 hover:bg-blue-800"
+                            disabled={files.length === 0 || loading || submitting}
+                            onclick={handleSubmit}
+                        >
+                            {#if loading || submitting}
+                                Analyzing…
+                            {:else if files.length > 1}
+                                Start Batch Review
+                            {:else}
+                                Analyze Label
+                            {/if}
+                        </Button>
+                    </div>
+                </section>
+
                 <ComplianceForm
                     bind:brandName
                     bind:producerName
@@ -746,6 +776,7 @@
                     onToggleLock={toggleLock}
                     onSubmit={handleSubmit}
                     {statusIcon}
+                    compact
                 />
 
                 <BatchQueue

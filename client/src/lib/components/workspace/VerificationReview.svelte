@@ -158,7 +158,7 @@
     function statusSummary() {
         if (loading) return 'Analyzing label image and application values'
         if (error) return error
-        if (!result) return 'Upload a label and application values to start verification'
+        if (!result) return 'Upload a label image to extract data and start review'
         if (issueFields.length === 0) return 'No potential issues found'
         return `${issueFields.length} potential ${issueFields.length === 1 ? 'issue' : 'issues'} found`
     }
@@ -294,7 +294,7 @@
                             <tr>
                                 <th class="w-[18%] px-3 py-2">Field</th>
                                 <th class="w-[32%] px-3 py-2">Label Extracted</th>
-                                <th class="w-[32%] px-3 py-2">Application Provided</th>
+                                <th class="w-[32%] px-3 py-2">Application (Provided)</th>
                                 <th class="w-[13%] px-3 py-2">Status</th>
                                 <th class="w-[5%] px-2 py-2 text-right">Edit</th>
                             </tr>
@@ -340,7 +340,7 @@
                                     <td class="px-2 py-1.5 text-right">
                                         <button
                                             type="button"
-                                            class="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-bold text-gray-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                            class="rounded bg-transparent px-2 py-1 text-xs font-bold text-gray-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                                             aria-expanded={expanded}
                                             aria-label="{expanded ? 'Collapse' : 'Expand'} {formatFieldName(field.fieldName)} review row"
                                             onclick={() => toggleExpanded(field)}

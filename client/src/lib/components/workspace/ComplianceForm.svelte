@@ -116,13 +116,6 @@
 
     let canSubmit = $derived(
         files.length > 0 &&
-            brandName.trim() !== '' &&
-            beverageType !== '' &&
-            classType.trim() !== '' &&
-            alcoholContent.trim() !== '' &&
-            netContents.trim() !== '' &&
-            producerName.trim() !== '' &&
-            producerAddress.trim() !== '' &&
             !loading &&
             !submitting &&
             jobId === null
@@ -254,8 +247,8 @@
                     {:else}
                         <p class="{compact ? 'text-xs' : 'text-sm'} text-gray-600 font-medium">
                             {compact
-                                ? 'Supporting application values used for verification'
-                                : 'Check label against TTB requirements'}
+                                ? 'Optional values used for comparison when available'
+                                : 'Optional application data for comparison'}
                         </p>
                     {/if}
                 </div>
@@ -377,7 +370,7 @@
                 {#if !result && !compact}
                     <div class="flex items-center justify-between">
                         <p class="text-sm text-gray-600">
-                            <span class="text-red-500">*</span> Required
+                            Application data is optional. Uploading a label starts extraction.
                         </p>
                         <p class="text-xs text-gray-500">
                             Press
@@ -407,10 +400,7 @@
                                 <label
                                     for="brandName"
                                     class={labelClass}
-                                    >Brand Name <span
-                                        class="text-red-500 px-0.5 font-semibold"
-                                        >*</span
-                                    ></label
+                                    >Brand Name</label
                                 >
                                 {#if result}{@render fieldBadge(
                                         'brandName'
@@ -448,10 +438,7 @@
                                     <label
                                         for="producerName"
                                         class={labelClass}
-                                        >Producer Name <span
-                                            class="text-red-500 px-0.5 font-semibold"
-                                            >*</span
-                                        ></label
+                                        >Producer Name</label
                                     >
                                     {#if result}{@render fieldBadge(
                                             'producerName'
@@ -502,10 +489,7 @@
                             <label
                                 for="beverageType"
                                 class="mb-1.5 block {labelClass}"
-                                >Beverage Type <span
-                                    class="text-red-500 px-0.5 font-semibold"
-                                    >*</span
-                                ></label
+                                >Beverage Type</label
                             >
                             <select
                                 id="beverageType"
@@ -534,10 +518,7 @@
                                 <label
                                     for="classType"
                                     class={labelClass}
-                                    >Class / Type <span
-                                        class="text-red-500 px-0.5 font-semibold"
-                                        >*</span
-                                    ></label
+                                    >Class / Type</label
                                 >
                                 {#if result}{@render fieldBadge(
                                         'classType'
@@ -574,10 +555,7 @@
                                 <label
                                     for="producerAddress"
                                     class={labelClass}
-                                    >Producer Address <span
-                                        class="text-red-500 px-0.5 font-semibold"
-                                        >*</span
-                                    ></label
+                                    >Producer Address</label
                                 >
                                 {#if result}{@render fieldBadge(
                                         'producerAddress'
@@ -670,10 +648,7 @@
                                 <label
                                     for="alcoholContent"
                                     class={labelClass}
-                                    >Alcohol Content <span
-                                        class="text-red-500 px-0.5 font-semibold"
-                                        >*</span
-                                    ></label
+                                    >Alcohol Content</label
                                 >
                                 {#if result}{@render fieldBadge(
                                         'alcoholContent'
@@ -707,10 +682,7 @@
                                 <label
                                     for="netContents"
                                     class={labelClass}
-                                    >Net Contents <span
-                                        class="text-red-500 px-0.5 font-semibold"
-                                        >*</span
-                                    ></label
+                                    >Net Contents</label
                                 >
                                 {#if result}{@render fieldBadge(
                                         'netContents'
@@ -774,11 +746,11 @@
                                     ></path></svg
                                 >Verifying…
                             {:else if result}
-                                Re-verify Label
+                                Re-analyze Label
                             {:else if files.length > 1}
                                 Start Batch ({files.length} labels)
                             {:else}
-                                Verify Label
+                                Analyze Label
                             {/if}
                         </Button>
                     {/if}

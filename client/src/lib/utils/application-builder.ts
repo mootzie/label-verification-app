@@ -130,3 +130,37 @@ export function buildApplicationData(data: {
     if (data.vintageYear?.trim()) app.vintageYear = data.vintageYear.trim()
     return app
 }
+
+export function buildOptionalApplicationData(data: {
+    brandName: string
+    classType: string
+    beverageType: string
+    alcoholContent: string
+    netContents: string
+    producerName: string
+    producerAddress: string
+    productName?: string
+    countryOfOrigin?: string
+    appellation?: string
+    vintageYear?: string
+}) {
+    const entries = {
+        brandName: data.brandName,
+        classType: data.classType,
+        beverageType: data.beverageType,
+        alcoholContent: data.alcoholContent,
+        netContents: data.netContents,
+        producerName: data.producerName,
+        producerAddress: data.producerAddress,
+        productName: data.productName,
+        countryOfOrigin: data.countryOfOrigin,
+        appellation: data.appellation,
+        vintageYear: data.vintageYear,
+    }
+
+    return Object.fromEntries(
+        Object.entries(entries)
+            .map(([key, value]) => [key, value?.trim() ?? ''])
+            .filter(([, value]) => value !== '')
+    )
+}

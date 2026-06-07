@@ -33,7 +33,7 @@ const LabelApplicationSchema = z.object({
   countryOfOrigin: z.string().optional(),
   appellation: z.string().optional(),
   vintageYear: z.string().optional(),
-});
+}).partial();
 
 function withMulter(req: Request, res: Response, next: NextFunction) {
   upload.single("image")(req, res, (err: unknown) => {
@@ -60,17 +60,17 @@ router.post(
         return res.status(400).json({ error: "Image file is required" });
       }
 
-      if (!req.body.application) {
-        return res.status(400).json({ error: "Application data is required" });
-      }
-
       let rawApplication: unknown;
-      try {
-        rawApplication = JSON.parse(req.body.application as string);
-      } catch {
-        return res
-          .status(400)
-          .json({ error: "Application data must be valid JSON" });
+      if (req.body.application) {
+        try {
+          rawApplication = JSON.parse(req.body.application as string);
+        } catch {
+          return res
+            .status(400)
+            .json({ error: "Application data must be valid JSON" });
+        }
+      } else {
+        rawApplication = {};
       }
 
       const appResult = LabelApplicationSchema.safeParse(rawApplication);

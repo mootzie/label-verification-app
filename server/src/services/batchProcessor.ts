@@ -1,7 +1,7 @@
 import type {
   BatchJob,
   BatchLabelItem,
-  LabelApplication,
+  LabelApplicationInput,
 } from "../types/index";
 import type { ImageMediaType } from "./claude";
 import { verifyLabel } from "./labelVerifier";
@@ -14,7 +14,7 @@ interface LabelInput {
   filename: string;
   imageBase64: string;
   mediaType: ImageMediaType;
-  application: LabelApplication;
+  application: LabelApplicationInput;
 }
 
 export async function processBatch(

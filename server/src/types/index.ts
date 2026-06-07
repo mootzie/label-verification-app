@@ -32,6 +32,8 @@ export interface LabelApplication {
   // governmentWarning is not user-supplied — verifier compares against GOVERNMENT_WARNING constant
 }
 
+export type LabelApplicationInput = Partial<LabelApplication>;
+
 export type BatchJobStatus = "pending" | "processing" | "complete" | "failed";
 
 export interface BatchLabelItem {

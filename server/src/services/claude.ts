@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { LabelApplication } from "../types/index";
+import type { LabelApplicationInput } from "../types/index";
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
@@ -22,7 +22,7 @@ const client = new Anthropic({
 export async function callClaudeVision(
   imageBase64: string,
   mediaType: ImageMediaType,
-  application: LabelApplication,
+  application: LabelApplicationInput = {},
   systemPrompt?: string,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -48,7 +48,10 @@ export async function callClaudeVision(
             },
             {
               type: "text",
-              text: `Application data:\n${JSON.stringify(application, null, 2)}`,
+              text:
+                Object.keys(application).length > 0
+                  ? `Optional application data for comparison:\n${JSON.stringify(application, null, 2)}`
+                  : "No application data was provided. Extract readable label data from the image and assess mandatory TTB label requirements from the image alone.",
             },
           ],
         },
