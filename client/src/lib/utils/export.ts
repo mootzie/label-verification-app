@@ -1,4 +1,45 @@
-import type { BatchLabelItem } from '$shared/index'
+import type { BatchLabelItem, VerificationResult } from '$shared/index'
+import type { ReviewDecisions } from './review-types'
+
+export function exportSingleLabelCsv(
+    result: VerificationResult,
+    decisions: ReviewDecisions,
+    filename: string
+): void {
+    const header = [
+        'filename',
+        'field',
+        'extractedValue',
+        'applicationValue',
+        'status',
+        'reviewerDecision',
+        'notes',
+        'evidenceAvailable',
+    ]
+    const rows = result.fields.map((f) => [
+        filename,
+        f.fieldName,
+        f.foundValue ?? '',
+        f.expectedValue ?? '',
+        f.status,
+        decisions[f.fieldName] ?? 'unreviewed',
+        f.notes ?? '',
+        'no',
+    ])
+    const csv =
+        '﻿' +
+        [header, ...rows]
+            .map((row) =>
+                row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')
+            )
+            .join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `verification-${filename.replace(/\.[^.]+$/, '')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+}
 
 export function exportBatchCsv(labels: BatchLabelItem[], jobId: string | null): void {
     const fieldNames = Array.from(

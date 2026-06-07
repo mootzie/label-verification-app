@@ -3,6 +3,10 @@
     import { Button } from '$lib/components/ui/button'
     import { formatFieldName, STATUS_LABEL } from '$lib/utils/compliance-logic'
     import type {
+        ReviewDecision,
+        ReviewDecisions,
+    } from '$lib/utils/review-types'
+    import type {
         FieldResult,
         FieldStatus,
         VerificationResult,
@@ -15,6 +19,8 @@
         error,
         mode = 'body',
         onSelectedFieldChange,
+        onExport,
+        onMarkAllReviewed,
     }: {
         result: VerificationResult | null
         loading: boolean
@@ -22,6 +28,8 @@
         error: string | null
         mode?: 'banner' | 'body'
         onSelectedFieldChange?: (fieldName: string | null) => void
+        onExport?: (decisions: ReviewDecisions) => void
+        onMarkAllReviewed?: (decisions: ReviewDecisions) => void
     } = $props()
 
     const GOVERNMENT_WARNING_REQUIRED =
@@ -55,6 +63,18 @@
     let selectedFieldName = $state<string | null>(null)
     let expandedFieldName = $state<string | null>(null)
     let drafts = $state<Record<string, DraftField>>({})
+    let decisions = $state<ReviewDecisions>({})
+    let markAllMessage = $state<string | null>(null)
+
+    // Reset decisions when result reference changes (new label loaded)
+    let _lastResultRef = $state<VerificationResult | null>(null)
+    $effect(() => {
+        if (result !== _lastResultRef) {
+            decisions = {}
+            markAllMessage = null
+            _lastResultRef = result
+        }
+    })
 
     let issueFields = $derived(
         result?.fields.filter((f) => f.status !== 'pass') ?? []
@@ -145,6 +165,30 @@
                 note: field.notes ?? '',
             }
         )
+    }
+
+    function decisionFor(fieldName: string): ReviewDecision {
+        return decisions[fieldName] ?? 'unreviewed'
+    }
+
+    function setDecision(fieldName: string, decision: ReviewDecision) {
+        decisions = { ...decisions, [fieldName]: decision }
+    }
+
+    function handleMarkAllReviewed() {
+        const unresolved = issueFields.filter(
+            (f) =>
+                !decisions[f.fieldName] ||
+                decisions[f.fieldName] === 'unreviewed'
+        )
+        if (unresolved.length > 0) {
+            markAllMessage = `${unresolved.length} field${unresolved.length === 1 ? '' : 's'} still need a decision`
+            setTimeout(() => {
+                markAllMessage = null
+            }, 3000)
+            return
+        }
+        onMarkAllReviewed?.(decisions)
     }
 
     function fieldColor(fieldName: string) {
@@ -297,8 +341,17 @@
                 >
                     Time: {processingTimeText()}
                 </span>
+                {#if markAllMessage}
+                    <span class="text-xs font-semibold text-amber-700">
+                        {markAllMessage}
+                    </span>
+                {/if}
                 {#if result && !isExtractionOnly}
-                    <Button size="sm" class="bg-blue-900 hover:bg-blue-800">
+                    <Button
+                        size="sm"
+                        class="bg-blue-900 hover:bg-blue-800"
+                        onclick={handleMarkAllReviewed}
+                    >
                         Mark as Reviewed
                     </Button>
                 {/if}
@@ -321,7 +374,13 @@
                     Expand rows to edit values and record review action
                 </p>
             </div>
-            <Button variant="outline" size="sm" class="h-8">Export</Button>
+            <Button
+                variant="outline"
+                size="sm"
+                class="h-8"
+                disabled={!result}
+                onclick={() => result && onExport?.(decisions)}>Export</Button
+            >
         </div>
 
         {#if result}
@@ -383,7 +442,7 @@
                                     <td class="px-3 py-1.5">
                                         <button
                                             type="button"
-                                            class="flex w-full items-center gap-2 truncate text-left text-sm font-semibold text-gray-950 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                            class="flex w-full items-center h-full gap-2 truncate text-left text-sm font-semibold text-gray-950 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                                             onclick={() => selectField(field)}
                                             title={formatFieldName(
                                                 field.fieldName
@@ -434,6 +493,32 @@
                                             >
                                             {STATUS_LABEL[field.status]}
                                         </Badge>
+                                        {#if decisionFor(field.fieldName) !== 'unreviewed'}
+                                            <div class="mt-1">
+                                                <span
+                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold {decisionFor(
+                                                        field.fieldName
+                                                    ) === 'escalated'
+                                                        ? 'bg-red-100 text-red-700'
+                                                        : decisionFor(
+                                                                field.fieldName
+                                                            ) ===
+                                                            'accepted_variation'
+                                                          ? 'bg-amber-100 text-amber-700'
+                                                          : 'bg-green-100 text-green-700'}"
+                                                >
+                                                    {decisionFor(
+                                                        field.fieldName
+                                                    ) === 'accepted_variation'
+                                                        ? 'Accepted'
+                                                        : decisionFor(
+                                                                field.fieldName
+                                                            ) === 'escalated'
+                                                          ? 'Escalated'
+                                                          : 'Reviewed'}
+                                                </span>
+                                            </div>
+                                        {/if}
                                     </td>
                                     <!-- <td class="px-2 py-1.5 text-right">
                                         <button
@@ -455,7 +540,7 @@
                                 {#if expanded}
                                     {@const draft = draftFor(field)}
                                     <tr
-                                        class="bg-slate-50"
+                                        class="bg-blue-50"
                                         style="box-shadow: inset 3px 0 0 {color};"
                                     >
                                         <td
@@ -520,24 +605,52 @@
                                                 <div
                                                     class="flex min-w-[9rem] flex-col justify-end gap-2"
                                                 >
-                                                    {#if field.status === 'warning'}
+                                                    {#if field.status === 'warning' || field.status === 'fail'}
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            class="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                                            class="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 {decisionFor(
+                                                                field.fieldName
+                                                            ) ===
+                                                            'accepted_variation'
+                                                                ? 'ring-2 ring-amber-400'
+                                                                : ''}"
+                                                            onclick={() =>
+                                                                setDecision(
+                                                                    field.fieldName,
+                                                                    'accepted_variation'
+                                                                )}
                                                             >Accept Variation</Button
                                                         >
                                                     {/if}
-                                                    <Button
+                                                    <!-- <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        class="justify-start text-gray-700 hover:bg-gray-100"
+                                                        class="justify-start text-gray-700 hover:bg-gray-100 {decisionFor(
+                                                            field.fieldName
+                                                        ) === 'reviewed'
+                                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                            : ''}"
+                                                        onclick={() =>
+                                                            setDecision(
+                                                                field.fieldName,
+                                                                'reviewed'
+                                                            )}
                                                         >Mark Reviewed</Button
-                                                    >
+                                                    > -->
                                                     {#if field.status !== 'pass'}
                                                         <Button
                                                             size="sm"
-                                                            class="bg-blue-900 hover:bg-blue-800"
+                                                            class="bg-blue-900 hover:bg-blue-800 {decisionFor(
+                                                                field.fieldName
+                                                            ) === 'escalated'
+                                                                ? 'ring-2 ring-red-400'
+                                                                : ''}"
+                                                            onclick={() =>
+                                                                setDecision(
+                                                                    field.fieldName,
+                                                                    'escalated'
+                                                                )}
                                                             >Escalate</Button
                                                         >
                                                     {/if}

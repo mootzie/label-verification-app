@@ -34,7 +34,8 @@
         MOCK_COMPARISON,
         applyMockBatch,
     } from '$lib/utils/debug-mocks'
-    import { exportBatchCsv } from '$lib/utils/export'
+    import { exportBatchCsv, exportSingleLabelCsv } from '$lib/utils/export'
+    import type { ReviewDecisions } from '$lib/utils/review-types'
     import DragAndDrop from '$lib/components/ui/dragAndDrop/DragAndDrop.svelte'
 
     // ── State ────────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@
     let labels = $state<BatchLabelItem[]>([])
     let jobDone = $state(false)
     let es: EventSource | null = null
+    let reviewDecisions = $state<ReviewDecisions>({})
 
     // ── Derived ──────────────────────────────────────────────────────────────────
     let completedCount = $derived(
@@ -205,10 +207,22 @@
     async function handleSingleSubmit(targetFiles = files) {
         const image = targetFiles[0]
         if (!image) return
+        const syntheticId = `single-${Date.now()}`
         loading = true
         result = null
         selectedReviewFieldName = null
         error = null
+        reviewDecisions = {}
+        // Set queue entry so the BatchQueue shows this label immediately
+        jobId = syntheticId
+        jobDone = false
+        labels = [
+            {
+                labelId: syntheticId,
+                filename: image.name,
+                status: 'processing',
+            },
+        ]
         const formData = new FormData()
         formData.append('image', await resizeForUpload(image))
         appendOptionalApplication(formData)
@@ -218,12 +232,27 @@
                 body: formData,
             })
             const data = await res.json()
-            if (!res.ok) error = data.error ?? 'Verification failed'
-            else result = data as VerificationResult
+            if (!res.ok) {
+                error = data.error ?? 'Verification failed'
+                labels = [
+                    {
+                        ...labels[0],
+                        status: 'failed',
+                        error: error ?? undefined,
+                    },
+                ]
+            } else {
+                result = data as VerificationResult
+                labels = [{ ...labels[0], status: 'complete', result }]
+            }
         } catch {
             error = 'Network error'
+            labels = [
+                { ...labels[0], status: 'failed', error: 'Network error' },
+            ]
         } finally {
             loading = false
+            jobDone = true
         }
     }
 
@@ -310,6 +339,32 @@
         exportBatchCsv(labels, jobId)
     }
 
+    function handleExport(decisions: ReviewDecisions) {
+        if (result && files[selectedFileIndex ?? 0]) {
+            exportSingleLabelCsv(
+                result,
+                decisions,
+                files[selectedFileIndex ?? 0].name
+            )
+        } else if (result) {
+            exportSingleLabelCsv(
+                result,
+                decisions,
+                labels[0]?.filename ?? 'label'
+            )
+        } else {
+            exportBatchCsv(labels, jobId)
+        }
+    }
+
+    function handleMarkAllReviewed(decisions: ReviewDecisions) {
+        reviewDecisions = decisions
+        // Mark the current queue item as reviewed (map to 'complete' since BatchLabelItem has no 'reviewed' status)
+        labels = labels.map((l, i) =>
+            i === (selectedFileIndex ?? 0) ? { ...l, status: 'complete' } : l
+        )
+    }
+
     function onDropZoneKeydown(e: KeyboardEvent) {
         if (e.key === 'Enter' || e.key === ' ') {
             if (browser) document.getElementById('file-input-el')?.click()
@@ -319,9 +374,33 @@
     // ── Debug ─────────────────────────────────────────────────────────────────────
     function mockExtraction() {
         ;({ imagePreviewUrl, result } = MOCK_EXTRACTION)
+        reviewDecisions = {}
+        const id = `debug-extraction-${Date.now()}`
+        jobId = id
+        jobDone = true
+        labels = [
+            {
+                labelId: id,
+                filename: 'mock-label.png',
+                status: 'complete',
+                result: MOCK_EXTRACTION.result,
+            },
+        ]
     }
     function mockComparison() {
         ;({ imagePreviewUrl, result } = MOCK_COMPARISON)
+        reviewDecisions = {}
+        const id = `debug-comparison-${Date.now()}`
+        jobId = id
+        jobDone = true
+        labels = [
+            {
+                labelId: id,
+                filename: 'mock-label.png',
+                status: 'complete',
+                result: MOCK_COMPARISON.result,
+            },
+        ]
     }
     function mockBatch() {
         applyMockBatch(
@@ -444,6 +523,7 @@
                 {comparing}
                 {error}
                 mode="banner"
+                onMarkAllReviewed={handleMarkAllReviewed}
             />
         </div>
 
@@ -495,6 +575,8 @@
                 mode="body"
                 onSelectedFieldChange={(fieldName) =>
                     (selectedReviewFieldName = fieldName)}
+                onExport={handleExport}
+                onMarkAllReviewed={handleMarkAllReviewed}
             />
         </div>
 

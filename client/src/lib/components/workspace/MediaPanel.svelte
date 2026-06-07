@@ -223,7 +223,7 @@
                             </div>
                         {/if}
                     </div>
-                    {#if files.length > 1}
+                    <!-- {#if files.length > 1}
                         <div
                             class="max-h-[12rem] overflow-y-auto space-y-1 rounded-md border border-gray-100 p-1.5 min-w-0 bg-gray-50/30"
                         >
@@ -259,7 +259,7 @@
                                 </div>
                             {/each}
                         </div>
-                    {/if}
+                    {/if} -->
                     <div
                         class="flex shrink-0 items-center justify-between px-1"
                     >

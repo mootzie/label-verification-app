@@ -11,7 +11,6 @@
     import { QueueIcon, TrashIcon, UploadIcon } from '$lib/components/ui/icon'
     import {
         BATCH_STATUS_VARIANT,
-        OVERALL_LABEL,
         STATUS_LABEL,
     } from '$lib/utils/compliance-logic'
     import type { BatchLabelItem } from '$shared/index'
@@ -65,13 +64,15 @@
         )
     }
 
-    function processingTime(label: BatchLabelItem) {
-        if (!label.result?.processingTimeMs) return '—'
-        return `${(label.result.processingTimeMs / 1000).toFixed(1)}s`
-    }
-
     function selectItem(index: number) {
         onSelectFile?.(index)
+    }
+
+    function selectRelative(delta: number) {
+        if (labels.length === 0) return
+        const base = selectedFileIndex ?? 0
+        const next = Math.max(0, Math.min(labels.length - 1, base + delta))
+        selectItem(next)
     }
 </script>
 
@@ -124,11 +125,45 @@
             </div>
         </CardHeader>
         <CardContent class="bg-white p-3">
-            <div
-                class="overflow-hidden rounded-md border-2 border-dashed border-gray-300 bg-gray-50/40 px-6 py-5"
-            >
+            <div class="flex min-h-[6.5rem] overflow-hidden rounded-md border border-gray-200 bg-white">
                 <div
-                    class="flex min-h-[7rem] items-center gap-3 overflow-x-auto pb-1"
+                    class="flex w-[12.5rem] shrink-0 flex-col justify-between border-r border-gray-200 bg-gray-50 p-3"
+                >
+                    <div class="min-w-0">
+                        <p class="truncate text-xs font-bold text-gray-900">
+                            {jobDone ? 'Batch Complete' : 'Batch Processing'}
+                        </p>
+                        <Badge
+                            variant="outline"
+                            class="mt-2 border-green-200 bg-green-50 px-2 py-1 text-xs font-bold text-green-700"
+                        >
+                            {completedCount} of {labels.length}
+                        </Badge>
+                    </div>
+                    <div class="mt-3 flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-lg font-bold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-40"
+                            disabled={(selectedFileIndex ?? 0) <= 0}
+                            aria-label="Previous label"
+                            onclick={() => selectRelative(-1)}
+                        >
+                            ‹
+                        </button>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 items-center justify-center rounded border border-gray-200 bg-white text-lg font-bold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-40"
+                            disabled={(selectedFileIndex ?? 0) >=
+                                labels.length - 1}
+                            aria-label="Next label"
+                            onclick={() => selectRelative(1)}
+                        >
+                            ›
+                        </button>
+                    </div>
+                </div>
+                <div
+                    class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto px-4 py-3"
                     role="list"
                     aria-label="Batch label filmstrip"
                 >
@@ -139,13 +174,14 @@
                         <div role="listitem" class="shrink-0">
                             <button
                                 type="button"
-                                class="group flex w-[11rem] items-center gap-3 rounded-md border bg-white p-2 text-left shadow-sm transition {selected
+                                class="group w-[4.75rem] rounded-md border bg-white p-1.5 text-left shadow-sm transition {selected
                                     ? 'border-blue-500 ring-2 ring-blue-200'
                                     : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                                 onclick={() => selectItem(index)}
+                                title={`${label.filename} · ${label.result ? `${issues} issue${issues === 1 ? '' : 's'}` : STATUS_LABEL[label.status]}`}
                             >
                                 <div
-                                    class="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-white"
+                                    class="relative h-16 w-16 overflow-hidden rounded border border-gray-200 bg-white"
                                 >
                                     {#if url}
                                         <img
@@ -195,58 +231,20 @@
                                     {/if}
                                     </span>
                                 </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <p
-                                        class="truncate text-xs font-bold text-gray-900"
-                                    >
-                                        {label.filename}
-                                    </p>
-                                    <div
-                                        class="mt-1 flex flex-wrap items-center gap-1.5"
-                                    >
-                                        {#if label.status === 'complete' && label.result}
-                                            <Badge
-                                                variant={label.result
-                                                    .overallStatus}
-                                                class="border-0 px-1.5 py-0.5 text-[10px]"
-                                            >
-                                                {OVERALL_LABEL[
-                                                    label.result.overallStatus
-                                                ]}
-                                            </Badge>
-                                        {:else}
-                                            <Badge
-                                                variant={BATCH_STATUS_VARIANT[
-                                                    label.status
-                                                ]}
-                                                class="border-0 px-1.5 py-0.5 text-[10px]"
-                                            >
-                                                {STATUS_LABEL[label.status]}
-                                            </Badge>
-                                        {/if}
-                                        <span
-                                            class="text-[11px] font-semibold {issues >
-                                            0
-                                                ? 'text-amber-700'
-                                                : 'text-green-700'}"
-                                        >
-                                            {label.result
-                                                ? `${issues} issue${issues === 1 ? '' : 's'}`
-                                                : processingTime(label)}
-                                        </span>
-                                    </div>
-                                    {#if label.status === 'failed' && label.error}
-                                        <p
-                                            class="mt-1 line-clamp-2 text-[11px] font-medium text-red-700"
-                                        >
-                                            {label.error}
-                                        </p>
-                                    {/if}
-                                </div>
                             </button>
                         </div>
                     {/each}
+                </div>
+                <div
+                    class="flex w-[8.5rem] shrink-0 items-center justify-center border-l border-gray-200 bg-white p-3"
+                >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onclick={() => selectItem(selectedFileIndex ?? 0)}
+                    >
+                        View Selected
+                    </Button>
                 </div>
             </div>
         </CardContent>
