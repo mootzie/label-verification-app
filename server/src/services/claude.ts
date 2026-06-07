@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 import type { LabelApplicationInput } from "../types/index";
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
@@ -8,20 +9,32 @@ const client = new Anthropic({
   timeout: 45_000,
 });
 
+async function compressImage(
+  imageBase64: string,
+): Promise<{ data: string; mediaType: "image/jpeg" }> {
+  const raw = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+  const buffer = Buffer.from(raw, "base64");
+  const compressed = await sharp(buffer)
+    .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+  return { data: compressed.toString("base64"), mediaType: "image/jpeg" };
+}
+
 export async function callClaudeVision(
   imageBase64: string,
-  mediaType: ImageMediaType,
+  _mediaType: ImageMediaType,
   application: LabelApplicationInput = {},
   systemPrompt?: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+  const t0 = Date.now();
+  const { data, mediaType } = await compressImage(imageBase64);
 
-  const t0 = Date.now()
   const response = await client.messages.create(
     {
-      model: "claude-sonnet-4-6",
-      max_tokens: 8192,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 4096,
       ...(systemPrompt ? { system: systemPrompt } : {}),
       messages: [
         {
@@ -49,7 +62,7 @@ export async function callClaudeVision(
     { signal },
   );
 
-  console.log(`[claude] sonnet vision: ${Date.now() - t0}ms`)
+  console.log(`[claude] haiku vision: ${Date.now() - t0}ms`);
   const block = response.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") {
     throw new Error("Claude returned no text content");

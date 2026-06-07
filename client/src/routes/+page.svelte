@@ -24,8 +24,6 @@
         parseSmartPaste,
         buildOptionalApplicationData,
     } from '$lib/utils/application-builder'
-    import { FIELD_COLORS } from '$lib/utils/compliance-logic'
-    import type { HighlightRegion } from '$lib/components/workspace/MediaPanel.svelte'
     import { resizeForUpload } from '$lib/utils/image-resize'
     import {
         setupGlobalDragAndDrop,
@@ -83,15 +81,6 @@
               : 'Ready'
     )
     let reviewActive = $derived(result !== null || loading || error !== null)
-    let highlightRegions = $derived<HighlightRegion[]>(
-        (result?.fields ?? [])
-            .filter((f) => f.boundingBox !== undefined)
-            .map((f) => ({
-                fieldName: f.fieldName,
-                boundingBox: f.boundingBox!,
-                color: FIELD_COLORS[f.fieldName] ?? '#64748b',
-            }))
-    )
 
     // ── File management ───────────────────────────────────────────────────────────
     function applyFiles(incoming: FileList | File[]) {
@@ -570,8 +559,6 @@
                 {selectedFileIndex}
                 {jobId}
                 selectedFieldName={selectedReviewFieldName}
-                highlightFields={result?.fields.map((f) => f.fieldName) ?? []}
-                {highlightRegions}
                 workstation
                 onFileInput={(e) => {
                     const fl = (e.currentTarget as HTMLInputElement).files

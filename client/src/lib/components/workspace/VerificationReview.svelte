@@ -4,7 +4,6 @@
     import {
         formatFieldName,
         STATUS_LABEL,
-        FIELD_COLORS,
     } from '$lib/utils/compliance-logic'
     import type {
         ReviewDecision,
@@ -181,10 +180,6 @@
             return
         }
         onMarkAllReviewed?.(decisions)
-    }
-
-    function fieldColor(fieldName: string) {
-        return FIELD_COLORS[fieldName] ?? '#64748b'
     }
 
     function statusTitle() {
@@ -419,13 +414,12 @@
                                     field.fieldName}
                                 {@const expanded =
                                     expandedFieldName === field.fieldName}
-                                {@const color = fieldColor(field.fieldName)}
                                 <tr
                                     class="hover:cursor-pointer {selected
                                         ? 'bg-blue-50'
                                         : 'bg-white hover:bg-slate-50'} align-top transition-colors focus-within:bg-blue-50"
                                     style="box-shadow: inset 3px 0 0 {selected
-                                        ? color
+                                        ? '#3b82f6'
                                         : 'transparent'};"
                                     onclick={() => toggleExpanded(field)}
                                 >
@@ -439,8 +433,7 @@
                                             )}
                                         >
                                             <span
-                                                class="h-2.5 w-2.5 shrink-0 rounded-sm"
-                                                style="background-color: {color};"
+                                                class="h-2.5 w-2.5 shrink-0 rounded-sm bg-blue-500"
                                                 aria-hidden="true"
                                             ></span>
                                             <span class="truncate"
@@ -521,7 +514,7 @@
                                     {@const draft = draftFor(field)}
                                     <tr
                                         class="bg-blue-50"
-                                        style="box-shadow: inset 3px 0 0 {color};"
+                                        style="box-shadow: inset 3px 0 0 #3b82f6;"
                                     >
                                         <td
                                             colspan="4"

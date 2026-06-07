@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type {
   FieldResult,
+  FieldStatus,
   LabelApplication,
   LabelApplicationInput,
   OverallStatus,
@@ -10,20 +11,12 @@ import { callClaudeVision, type ImageMediaType } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 import { TTB_REQUIREMENTS, CFR_CITATIONS } from "../constants/requirements";
 
-export const BoundingBoxSchema = z.object({
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-  width: z.number().min(0).max(1),
-  height: z.number().min(0).max(1),
-});
-
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
   expectedValue: z.string().nullable(),
   foundValue: z.string().nullable(),
   status: z.enum(["pass", "warning", "fail", "not_found"]),
   notes: z.string(),
-  boundingBox: BoundingBoxSchema.optional(),
 });
 
 export const VerificationResultSchema = z.object({
@@ -32,6 +25,112 @@ export const VerificationResultSchema = z.object({
   processingTimeMs: z.number().optional(),
   labelId: z.string().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Programmatic government warning validation
+// Claude extracts text only; all format/compliance rules live here.
+// ---------------------------------------------------------------------------
+
+const GW_HEADER = "GOVERNMENT WARNING:";
+const GW_STATUTORY_BODY = normalizeText(
+  GOVERNMENT_WARNING.slice(GW_HEADER.length).trim(),
+);
+
+function normalizeText(s: string): string {
+  return s.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] =
+        a[i - 1] === b[j - 1]
+          ? prev
+          : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+function textSimilarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
+function validateGovernmentWarning(foundValue: string | null): {
+  status: FieldStatus;
+  notes: string;
+} {
+  if (!foundValue) {
+    return {
+      status: "not_found",
+      notes: "Government warning not detected on label.",
+    };
+  }
+
+  // Check 1: all-caps header present (case-sensitive)
+  if (!foundValue.includes(GW_HEADER)) {
+    if (foundValue.toLowerCase().includes("government warning:")) {
+      return {
+        status: "fail",
+        notes:
+          `Header found but not in all caps. Required exact string: "${GW_HEADER}" (27 CFR 16.21).`,
+      };
+    }
+    return {
+      status: "fail",
+      notes: `"${GW_HEADER}" header is missing from the extracted text (27 CFR 16.21).`,
+    };
+  }
+
+  // Check 2: statutory body text similarity
+  const bodyStart = foundValue.indexOf(GW_HEADER) + GW_HEADER.length;
+  const extractedBody = normalizeText(foundValue.slice(bodyStart));
+  const similarity = textSimilarity(extractedBody, GW_STATUTORY_BODY);
+  const pct = Math.round(similarity * 100);
+
+  if (similarity >= 0.95) {
+    return {
+      status: "pass",
+      notes: `Header and statutory text verified (${pct}% match).`,
+    };
+  }
+  if (similarity >= 0.8) {
+    return {
+      status: "warning",
+      notes:
+        `Header correct but statutory body text may contain OCR errors (${pct}% match). Recommend manual review (27 CFR 16.21).`,
+    };
+  }
+  return {
+    status: "fail",
+    notes:
+      `Statutory text substantially incorrect (${pct}% match). Required text per 27 CFR 16.21 differs significantly from what was extracted.`,
+  };
+}
+
+function applyProgrammaticChecks(
+  result: VerificationResult,
+): VerificationResult {
+  const fields = result.fields.map((field) => {
+    if (field.fieldName === "governmentWarning") {
+      const { status, notes } = validateGovernmentWarning(field.foundValue);
+      return { ...field, status, notes };
+    }
+    return field;
+  });
+  return { ...result, fields };
+}
+
+// ---------------------------------------------------------------------------
 
 const PROMPT_BASE = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance verifier.
 
@@ -46,13 +145,10 @@ Response schema:
       "expectedValue": string | null,
       "foundValue": string | null,
       "status": "pass" | "warning" | "fail" | "not_found",
-      "notes": string,
-      "boundingBox": { "x": number, "y": number, "width": number, "height": number } | undefined
+      "notes": string
     }
   ]
 }
-
-BOUNDING BOXES: For fields with status "warning" or "fail" only, include a boundingBox with normalized coordinates (0.0 to 1.0 relative to image dimensions), where x and y are the top-left corner. Omit boundingBox for "pass" and "not_found" fields, and omit it for any field you cannot locate precisely.
 
 FIELD VERIFICATION RULES:
 
@@ -60,18 +156,7 @@ brandName: Case-insensitive exact match → "pass". Same name with different cas
 
 alcoholContent: Compare numeric value only. "45%", "45% Alc./Vol.", and "45% Alc./Vol. (90 Proof)" are all equivalent. Fail only on numeric mismatch.
 
-governmentWarning: Compare the extracted text against this required statement:
-${GOVERNMENT_WARNING}
-
-PASS criteria (both must be true):
-1. The extracted text matches the required statement above (minor spacing/punctuation differences are acceptable).
-2. The heading "GOVERNMENT WARNING:" appears in all capital letters.
-
-FAIL criteria (only these):
-- The heading "GOVERNMENT WARNING:" is NOT in all capital letters.
-- The body text is substantially wrong, truncated, or missing.
-
-NEVER fail for: bold or italic formatting, font weight, font size, font color, visual contrast, text prominence, or any other presentation style. The regulation (27 CFR 16.21) requires only the all-caps heading and the exact text — it does NOT mandate bold type. Do not apply knowledge about bold requirements from outside this prompt. If the heading is all-caps and the text content is correct, status must be "pass". 
+governmentWarning: Extract the complete government warning text verbatim as it appears on the label. Do not evaluate capitalization, formatting, or compliance — format validation is handled by backend code. If the warning is entirely absent from the label set status to "not_found". Otherwise set status to "pass" and report the full extracted text in foundValue.
 
 All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". If no application value is provided, report the extracted label value with expectedValue null and status "warning" only when the field needs agent review or a mandatory requirement appears missing.
 
@@ -188,9 +273,10 @@ export async function verifyLabel(
 
   const parsed = tryParse(raw);
   if (parsed) {
+    const checked = applyProgrammaticChecks(parsed);
     return {
-      ...parsed,
-      overallStatus: deriveOverallStatus(parsed.fields),
+      ...checked,
+      overallStatus: deriveOverallStatus(checked.fields),
       processingTimeMs: Date.now() - start,
     };
   }
@@ -211,9 +297,10 @@ export async function verifyLabel(
   const parsedRetry = tryParse(rawRetry);
 
   if (parsedRetry) {
+    const checkedRetry = applyProgrammaticChecks(parsedRetry);
     return {
-      ...parsedRetry,
-      overallStatus: deriveOverallStatus(parsedRetry.fields),
+      ...checkedRetry,
+      overallStatus: deriveOverallStatus(checkedRetry.fields),
       processingTimeMs: Date.now() - start,
     };
   }
