@@ -454,11 +454,13 @@
                                 </tr>
                                 {#if expanded}
                                     {@const draft = draftFor(field)}
-                                    <tr class="bg-slate-50">
+                                    <tr
+                                        class="bg-slate-50"
+                                        style="box-shadow: inset 3px 0 0 {color};"
+                                    >
                                         <td
                                             colspan="4"
-                                            class="border-l-4 border-t px-3 py-2"
-                                            style="border-left-color: {color};"
+                                            class="border-t px-3 py-2"
                                         >
                                             <div
                                                 class="grid gap-2 lg:grid-cols-[1fr_1fr_1.1fr_auto]"
@@ -522,12 +524,14 @@
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
+                                                            class="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
                                                             >Accept Variation</Button
                                                         >
                                                     {/if}
                                                     <Button
-                                                        variant="outline"
+                                                        variant="ghost"
                                                         size="sm"
+                                                        class="justify-start text-gray-700 hover:bg-gray-100"
                                                         >Mark Reviewed</Button
                                                     >
                                                     {#if field.status !== 'pass'}

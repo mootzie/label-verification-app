@@ -7,6 +7,13 @@
     } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Tooltip } from '$lib/components/ui/tooltip'
+    import {
+        FileTextIcon,
+        FlagIcon,
+        InfoIcon,
+        ScaleIcon,
+        UploadIcon,
+    } from '$lib/components/ui/icon'
 
     import MediaPanel from '$lib/components/workspace/MediaPanel.svelte'
     import ApplicationDataInput from '$lib/components/workspace/ApplicationDataInput.svelte'
@@ -369,10 +376,10 @@
 </script>
 
 <main
-    class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col"
+    class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col bg-slate-50"
 >
     <header
-        class="mb-3 flex shrink-0 flex-col gap-3 border-b border-gray-200 pb-3 lg:flex-row lg:items-center lg:justify-between"
+        class="mb-3 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
     >
         <div>
             <h1 class="text-lg font-bold text-gray-950">
@@ -384,8 +391,16 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <span
-                class="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700"
+                class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm"
             >
+                <span
+                    class="h-2.5 w-2.5 rounded-full {loading || submitting
+                        ? 'bg-blue-500'
+                        : error
+                          ? 'bg-red-500'
+                          : 'bg-green-500'}"
+                    aria-hidden="true"
+                ></span>
                 {headerProcessingTime}
             </span>
             <!-- #region Debug buttons -->
@@ -453,7 +468,7 @@
 
         <!-- #region Main two-column review area -->
         <div
-            class="grid min-h-[400px] grid-cols-1 gap-3 lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
+            class="grid min-h-[400px] grid-cols-1 gap-3 lg:h-[34rem] lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
         >
             <MediaPanel
                 {files}
@@ -500,88 +515,155 @@
         <!-- #endregion -->
     {:else}
         <!-- #region Pre-upload layout -->
-        <div
-            class="grid grid-cols-1 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] gap-4 items-start flex-1"
-        >
-            <MediaPanel
-                {files}
-                {imagePreviewUrl}
-                {selectedFileIndex}
-                {jobId}
-                selectedFieldName={selectedReviewFieldName}
-                onFileInput={(e) => {
-                    const fl = (e.currentTarget as HTMLInputElement).files
-                    if (fl) applyFiles(fl)
-                }}
-                onSelectFile={selectFile}
-                onRemoveFile={removeFile}
-                {onDropZoneKeydown}
-                onUseSingleFile={useSingleFile}
-            />
+        <div class="flex min-h-0 flex-1 flex-col gap-4">
+            <div
+                class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] lg:items-stretch"
+            >
+                <MediaPanel
+                    {files}
+                    {imagePreviewUrl}
+                    {selectedFileIndex}
+                    {jobId}
+                    selectedFieldName={selectedReviewFieldName}
+                    blankState
+                    onFileInput={(e) => {
+                        const fl = (e.currentTarget as HTMLInputElement).files
+                        if (fl) applyFiles(fl)
+                    }}
+                    onSelectFile={selectFile}
+                    onRemoveFile={removeFile}
+                    {onDropZoneKeydown}
+                    onUseSingleFile={useSingleFile}
+                />
 
-            <div class="space-y-4 min-w-0">
-                <!-- Primary CTA -->
-                <section
-                    class="rounded-md border border-gray-300 bg-white p-4 shadow-sm"
-                >
-                    <div
-                        class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                <div class="flex min-h-0 min-w-0 flex-col gap-4">
+                    <section
+                        class="rounded-md border border-gray-200 bg-white shadow-sm"
                     >
-                        <div class="min-w-0">
-                            <h2 class="text-base font-semibold text-gray-950">
+                        <div class="min-w-0 border-b border-gray-200 p-4">
+                            <h2
+                                class="inline-flex items-center gap-3 text-lg font-semibold text-gray-950"
+                            >
+                                <UploadIcon
+                                    size={24}
+                                    className="text-gray-600"
+                                />
                                 Upload a Label to Begin
                             </h2>
-                            <p class="mt-1 text-sm text-gray-600">
-                                AI extracts all label fields automatically.
-                                Paste application data below before or after
+                            <p
+                                class="mt-1 max-w-3xl text-sm text-gray-600 font-medium"
+                            >
+                                Upload a label image to start extraction and
+                                review.
+                            </p>
+                            <p
+                                class="mt-1 max-w-3xl text-sm text-gray-600 font-normal"
+                            >
+                                Application data can be added before or after
                                 upload.
                             </p>
                         </div>
-                        {#if files.length > 0}
-                            <Button
-                                class="h-11 shrink-0 bg-blue-900 px-5 hover:bg-blue-800"
-                                disabled={loading || submitting}
-                                onclick={handleSubmit}
+
+                        <div
+                            class="mx-4 mt-5 grid grid-cols-1 overflow-hidden rounded border border-gray-200 bg-white sm:grid-cols-3"
+                        >
+                            <div class="flex items-center gap-3 px-4 py-3">
+                                <FileTextIcon
+                                    size={32}
+                                    className="shrink-0 text-blue-700"
+                                />
+                                <div class="flex flex-col p-2">
+                                    <p
+                                        class="text-sm font-semibold text-slate-800"
+                                    >
+                                        Extract fields
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        AI extracts label fields and values
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="flex items-center gap-3 border-t border-gray-200 px-4 sm:border-l sm:border-t-0"
                             >
-                                {#if loading || submitting}
-                                    Analyzing…
-                                {:else if files.length > 1}
-                                    Start Batch Review
-                                {:else}
-                                    Analyze Label
-                                {/if}
-                            </Button>
-                        {/if}
+                                <ScaleIcon
+                                    size={32}
+                                    className="shrink-0 text-blue-700"
+                                />
+                                <div class="flex flex-col p-2">
+                                    <p
+                                        class="text-sm font-semibold text-slate-800"
+                                    >
+                                        Compare data
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        Match application values
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                class="flex items-center gap-1 border-t border-gray-200 px-4 sm:border-l sm:border-t-0"
+                            >
+                                <FlagIcon
+                                    size={32}
+                                    className="shrink-0 text-blue-700"
+                                />
+                                <div class="flex flex-col p-2">
+                                    <p
+                                        class="text-sm font-semibold text-slate-800"
+                                    >
+                                        Flag issues
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        Show items needing review
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="mx-4 mb-4 mt-5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
+                        >
+                            <InfoIcon size={18} className="shrink-0" />
+                            Upload starts the review workflow.
+                        </div>
+                    </section>
+
+                    <!-- Optional: paste application data before upload -->
+                    <div class="min-h-0 flex-1">
+                        <ApplicationDataInput
+                            bind:brandName
+                            bind:producerName
+                            bind:beverageType
+                            bind:classType
+                            bind:producerAddress
+                            bind:countryOfOrigin
+                            bind:alcoholContent
+                            bind:netContents
+                            {loading}
+                            hasResult={false}
+                            blankState
+                            onCompare={handleCompare}
+                        />
                     </div>
-                </section>
-
-                <!-- Optional: paste application data before upload -->
-                <ApplicationDataInput
-                    bind:brandName
-                    bind:producerName
-                    bind:beverageType
-                    bind:classType
-                    bind:producerAddress
-                    bind:countryOfOrigin
-                    bind:alcoholContent
-                    bind:netContents
-                    {loading}
-                    hasResult={false}
-                    onCompare={handleCompare}
-                />
-
-                <BatchQueue
-                    {jobId}
-                    {jobDone}
-                    {labels}
-                    {completedCount}
-                    {batchProgress}
-                    {files}
-                    {selectedFileIndex}
-                    onSelectFile={selectFile}
-                    onExportCsv={exportCsv}
-                />
+                </div>
             </div>
+
+            <BatchQueue
+                {jobId}
+                {jobDone}
+                {labels}
+                {completedCount}
+                {batchProgress}
+                {files}
+                {selectedFileIndex}
+                onSelectFile={selectFile}
+                onExportCsv={exportCsv}
+                onBatchUpload={() =>
+                    document.getElementById('file-input-el')?.click()}
+                onClearQueue={clearAll}
+            />
         </div>
     {/if}
 </main>

@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+    .bg-muted {
+        background-color: #f3f4f6;
+    }
+
+    .text-muted-foreground {
+        color: #6b7280;
+    }
+}

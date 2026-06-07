@@ -5,6 +5,7 @@
         CardHeader,
         CardTitle,
     } from '$lib/components/ui/card'
+    import { FileTextIcon, UploadIcon } from '$lib/components/ui/icon'
     import { formatFieldName } from '$lib/utils/compliance-logic'
 
     let {
@@ -14,6 +15,7 @@
         jobId,
         selectedFieldName = null,
         workstation = false,
+        blankState = false,
         highlightFields = [],
         hoverScale = 2.5,
         onFileInput,
@@ -28,6 +30,7 @@
         jobId: string | null
         selectedFieldName?: string | null
         workstation?: boolean
+        blankState?: boolean
         highlightFields?: string[]
         hoverScale?: number
         onFileInput: (e: Event) => void
@@ -39,62 +42,22 @@
 
     let isHovering = $state(false)
     let zoomOrigin = $state('50% 50%')
+    let highlightsEnabled = $state(false)
+    let autoEnabledHighlights = $state(false)
 
-    const FIELD_COLORS: Record<string, string> = {
-        brandName: '#3b82f6',
-        producerName: '#f59e0b',
-        classType: '#22c55e',
-        beverageType: '#06b6d4',
-        alcoholContent: '#8b5cf6',
-        netContents: '#eab308',
-        producerAddress: '#14b8a6',
-        governmentWarning: '#ef4444',
-        stateOfDistillation: '#f97316',
-    }
+    let highlightsAvailable = $derived(
+        highlightFields.length > 0 || selectedFieldName !== null
+    )
 
-    const APPROXIMATE_REGIONS: Record<
-        string,
-        { left: string; top: string; width: string; height: string }
-    > = {
-        brandName: { left: '24%', top: '13%', width: '52%', height: '9%' },
-        classType: { left: '17%', top: '48%', width: '66%', height: '10%' },
-        alcoholContent: { left: '30%', top: '61%', width: '40%', height: '6%' },
-        netContents: { left: '42%', top: '68%', width: '18%', height: '5%' },
-        governmentWarning: {
-            left: '17%',
-            top: '74%',
-            width: '66%',
-            height: '13%',
-        },
-        producerName: { left: '26%', top: '89%', width: '48%', height: '8%' },
-        producerAddress: {
-            left: '26%',
-            top: '91%',
-            width: '48%',
-            height: '5%',
-        },
-        stateOfDistillation: {
-            left: '23%',
-            top: '49%',
-            width: '54%',
-            height: '5%',
-        },
-    }
-
-    let visibleHighlightFields = $derived.by(() => {
-        const known = highlightFields.filter(
-            (field) => APPROXIMATE_REGIONS[field]
-        )
-        return known.length > 0
-            ? known
-            : [
-                  'brandName',
-                  'classType',
-                  'alcoholContent',
-                  'netContents',
-                  'governmentWarning',
-                  'producerName',
-              ]
+    $effect(() => {
+        if (highlightsAvailable && !autoEnabledHighlights) {
+            highlightsEnabled = true
+            autoEnabledHighlights = true
+        }
+        if (!highlightsAvailable) {
+            highlightsEnabled = false
+            autoEnabledHighlights = false
+        }
     })
 
     function handleMouseMove(e: MouseEvent) {
@@ -107,28 +70,55 @@
 
 <div class="min-w-0 h-full">
     <Card
-        class="h-full flex flex-col overflow-hidden border-gray-300 shadow-sm"
+        class="h-full flex flex-col overflow-hidden border-gray-200 shadow-sm"
     >
         <CardHeader
             class="{workstation
                 ? 'py-2.5'
                 : 'py-4'} border-b border-gray-200 bg-white"
         >
-            <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
+            <div class="flex items-center justify-between gap-3 w-full">
+                <div class="min-w-0 w-full">
                     <CardTitle
-                        class="{workstation
+                        class="w-full {workstation
                             ? 'text-sm'
                             : 'text-base'} font-bold text-gray-950"
                     >
-                        <div class="flex justify-between items-center gap-2">
-                            <span>Label Image</span>
-                            <!-- url of image. -->
+                        <div
+                            class="flex justify-between items-center gap-2 w-full"
+                        >
+                            <span class="inline-flex items-center gap-2">
+                                <FileTextIcon
+                                    size={20}
+                                    className={blankState
+                                        ? 'text-blue-700'
+                                        : 'text-gray-500'}
+                                />
+                                {#if blankState}
+                                    <span class="font-bold text-blue-700"
+                                        >Step 1</span
+                                    >
+                                    <span
+                                        class="h-1 w-1 rounded-full bg-blue-700"
+                                        aria-hidden="true"
+                                    ></span>
+                                    Add Label Image
+                                {:else}
+                                    Label Image
+                                {/if}
+                            </span>
+                            {#if blankState}
+                                <span
+                                    class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
+                                >
+                                    Start here
+                                </span>
+                            {/if}
                             {#if imagePreviewUrl}
                                 <p
                                     class="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
                                 >
-                                    {imagePreviewUrl?.imageName || 'No preview'}
+                                    Preview loaded
                                 </p>
                             {/if}
                         </div>
@@ -157,7 +147,7 @@
                 : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden"
         >
             <div
-                class="mb-2 flex h-9 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-300 bg-gray-50 px-2 text-xs text-gray-600"
+                class="mb-4 flex h-10 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-3 text-xs text-gray-600"
             >
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-gray-800">Document Viewer</span>
@@ -169,9 +159,20 @@
                     >
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="font-semibold text-gray-700"
-                        >Highlights: On</span
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        aria-pressed={highlightsEnabled}
+                        onclick={() => (highlightsEnabled = !highlightsEnabled)}
                     >
+                        <span
+                            class="h-2 w-2 rounded-full {highlightsEnabled
+                                ? 'bg-green-500'
+                                : 'bg-gray-300'}"
+                            aria-hidden="true"
+                        ></span>
+                        Highlights {highlightsEnabled ? 'On' : 'Off'}
+                    </button>
                     {#if imagePreviewUrl}
                         <button
                             type="button"
@@ -212,23 +213,11 @@
                                 : 1}); transform-origin: {zoomOrigin};"
                             draggable="false"
                         />
-                        <!-- {#each visibleHighlightFields as fieldName}
-                            {@const region = APPROXIMATE_REGIONS[fieldName]}
-                            {@const selected = selectedFieldName === fieldName}
-                            {@const color = FIELD_COLORS[fieldName] ?? '#64748b'}
-                            <div
-                                class="pointer-events-none absolute rounded-sm {selected
-                                    ? 'border-[3px] opacity-100 shadow-[0_0_0_9999px_rgba(15,23,42,0.04)]'
-                                    : 'border-2 opacity-75'}"
-                                style="left: {region.left}; top: {region.top}; width: {region.width}; height: {region.height}; border-color: {color}; background-color: {color}1f;"
-                                title={formatFieldName(fieldName)}
-                            ></div>
-                        {/each} -->
-                        {#if selectedFieldName}
+                        {#if selectedFieldName && highlightsEnabled}
                             <div
                                 class="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded border border-amber-300 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-sm"
                             >
-                                Approximate region: {formatFieldName(
+                                Source region unavailable for {formatFieldName(
                                     selectedFieldName
                                 )}
                             </div>
@@ -327,40 +316,36 @@
                     </div>
                 </div>
             {:else}
-                <!-- svelte-ignore a11y_interactive_supports_focus -->
-                <div
-                    role="button"
-                    tabindex="0"
-                    class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-gray-300 bg-white p-10 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30"
+                <button
+                    type="button"
+                    class="flex min-h-[24rem] flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-gray-300 bg-white p-10 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    aria-label="Add label images"
                     onclick={() =>
                         document.getElementById('file-input-el')?.click()}
-                    onkeydown={onDropZoneKeydown}
                 >
                     <div
-                        class="rounded-full bg-gray-100 p-4 transition-colors group-hover:bg-blue-100"
+                        class="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-blue-100"
                     >
-                        <svg
-                            class="h-8 w-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            ><path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="1.5"
-                                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                            /></svg
-                        >
+                        <UploadIcon size={28} />
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-700">
                             Add Label Images
                         </p>
-                        <p class="mt-1 text-xs text-gray-500 tracking-wider">
+                        <span
+                            class="mt-4 inline-flex items-center gap-2 rounded-md bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                        >
+                            <UploadIcon size={24} />
+                            Browse Files
+                        </span>
+                        <p class="mt-2 text-sm text-gray-600">
+                            or drag and drop label images here
+                        </p>
+                        <p class="mt-2 text-xs text-gray-500 tracking-wider">
                             JPEG, PNG, WebP supported
                         </p>
                     </div>
-                </div>
+                </button>
             {/if}
         </CardContent>
     </Card>

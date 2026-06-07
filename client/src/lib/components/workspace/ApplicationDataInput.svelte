@@ -1,5 +1,6 @@
 <script lang="ts">
     import { Button } from '$lib/components/ui/button'
+    import { FileTextIcon } from '$lib/components/ui/icon'
     import { parseSmartPaste } from '$lib/utils/application-builder'
 
     let {
@@ -15,6 +16,7 @@
         netContents = $bindable(''),
         loading = false,
         hasResult = false,
+        blankState = false,
         onCompare,
     }: {
         brandName?: string
@@ -27,6 +29,7 @@
         netContents?: string
         loading?: boolean
         hasResult?: boolean
+        blankState?: boolean
         onCompare: () => void
     } = $props()
 
@@ -70,23 +73,48 @@
         'w-full rounded border border-gray-300 bg-white px-2.5 h-9 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors'
 </script>
 
-<div class="rounded-md border border-gray-200 bg-white shadow-sm">
+<div
+    class="flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm"
+>
     <div
-        class="flex flex-col gap-1 border-b border-gray-200 bg-gray-50 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-1 px-4 py-4 border-b border-gray-200 lg:flex-row lg:items-center lg:justify-between"
     >
-        <h3 class="text-base font-semibold text-gray-950">Application Data</h3>
-        <p class="text-sm text-gray-500">
-            Paste COLA application values to compare against extracted label
-            fields
+        <h3
+            id="application-data-title"
+            class="inline-flex items-center gap-2 text-base font-semibold text-gray-950"
+        >
+            {#if blankState}
+                <FileTextIcon size={20} className="text-blue-700" />
+                <span class="font-bold text-blue-700">Step 2</span>
+                <span
+                    class="h-1 w-1 rounded-full bg-blue-700"
+                    aria-hidden="true"
+                ></span>
+            {/if}
+            Application Data
+            {#if blankState}
+                <span
+                    class="rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-semibold text-gray-600"
+                >
+                    Optional
+                </span>
+            {/if}
+        </h3>
+        <p class="max-w-xl text-sm text-gray-500 lg:text-right">
+            {blankState
+                ? 'Can be added before or after upload.'
+                : 'Paste COLA application values to compare against extracted label fields'}
         </p>
     </div>
 
-    <div class="space-y-3 p-4">
+    <div class="flex min-h-0 flex-1 flex-col space-y-3 p-4">
         <!-- #region Paste area -->
-        <div class="flex gap-2 flex-col">
+        <div class="flex min-h-0 flex-1 flex-col space-y-3">
             <textarea
-                class="h-16 flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="Paste application text (brand name, producer, ABV, class/type, address…)"
+                id="application-paste"
+                aria-labelledby="application-data-title"
+                class="min-h-24 w-full flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="Paste application text: brand name, producer, ABV, class/type, address..."
                 bind:value={pasteText}
                 onkeydown={handleKeydown}
             ></textarea>
@@ -94,7 +122,7 @@
                 variant="outline"
                 disabled={!pasteText.trim() || loading}
                 onclick={tryParse}
-                class="shrink-0 w-full bg-blue-900 hover:bg-blue-800 text-white h-9"
+                class="h-10 w-full bg-blue-900 px-5 text-white hover:bg-blue-800"
             >
                 Parse
             </Button>
@@ -114,10 +142,10 @@
         <!-- Toggle manual fields -->
         <button
             type="button"
-            class="text-xs font-semibold text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded"
+            class="text-xs font-semibold text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded underline"
             onclick={() => (showFields = !showFields)}
         >
-            {showFields ? 'Hide manual fields ⌃' : 'Enter fields manually ⌄'}
+            {showFields ? 'Hide manual fields' : 'Enter fields manually'}
         </button>
 
         {#if showFields}

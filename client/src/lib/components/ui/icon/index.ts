@@ -1,0 +1,7 @@
+export { default as UploadIcon } from './UploadIcon.svelte'
+export { default as FileTextIcon } from './FileTextIcon.svelte'
+export { default as ScaleIcon } from './ScaleIcon.svelte'
+export { default as FlagIcon } from './FlagIcon.svelte'
+export { default as QueueIcon } from './QueueIcon.svelte'
+export { default as TrashIcon } from './TrashIcon.svelte'
+export { default as InfoIcon } from './InfoIcon.svelte'
