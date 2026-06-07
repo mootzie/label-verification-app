@@ -528,7 +528,7 @@
                                             class="border-t px-4 py-4"
                                         >
                                             <div
-                                                class="grid gap-4 lg:grid-cols-[1fr_1fr_auto]"
+                                                class="grid gap-2 lg:grid-cols-[1fr_1fr_1.1fr_auto]"
                                             >
                                                 <label class="block">
                                                     <span
@@ -547,13 +547,13 @@
                                                             )}
                                                     ></textarea>
                                                 </label>
-                                                <!-- <label class="block">
+                                                <label class="block">
                                                     <span
                                                         class="mb-1 block text-[10px] font-bold uppercase text-gray-500"
                                                         >Edit Application Value</span
                                                     >
                                                     <textarea
-                                                        class="h-20 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                                         value={draft.expectedValue}
                                                         oninput={(e) =>
                                                             updateDraft(
@@ -563,7 +563,7 @@
                                                                     .value
                                                             )}
                                                     ></textarea>
-                                                </label> -->
+                                                </label>
                                                 <label class="block">
                                                     <span
                                                         class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"

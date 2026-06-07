@@ -114,8 +114,12 @@
                                         aria-hidden="true"
                                     ></span>
                                     Add Label Image
-                                {:else}
-                                    Label Image
+                                {:else if files.length > 0 && selectedFileIndex !== null}
+                                    <p
+                                        class="truncate text-[11px] font-medium text-gray-500"
+                                    >
+                                        {files[selectedFileIndex]?.name}
+                                    </p>
                                 {/if}
                             </span>
                             {#if blankState}
@@ -125,22 +129,8 @@
                                     Start here
                                 </span>
                             {/if}
-                            {#if imagePreviewUrl}
-                                <p
-                                    class="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
-                                >
-                                    Preview loaded
-                                </p>
-                            {/if}
                         </div>
                     </CardTitle>
-                    {#if files.length > 0 && selectedFileIndex !== null}
-                        <p
-                            class="truncate text-[11px] font-medium text-gray-500"
-                        >
-                            {files[selectedFileIndex]?.name}
-                        </p>
-                    {/if}
                 </div>
                 {#if selectedFieldName}
                     <span
@@ -217,11 +207,15 @@
                     >
                         <div
                             class="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
-                            style="transform: translate(-50%, -50%) scale({isHovering ? hoverScale : 1}); transform-origin: {zoomOrigin}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"
+                            style="transform: translate(-50%, -50%) scale({isHovering
+                                ? hoverScale
+                                : 1}); transform-origin: {zoomOrigin}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"
                             bind:clientWidth={wrapperWidth}
                             bind:clientHeight={wrapperHeight}
                         >
-                            <div style="position: relative; display: inline-block; line-height: 0; max-width: {wrapperWidth}px; max-height: {wrapperHeight}px;">
+                            <div
+                                style="position: relative; display: inline-block; line-height: 0; max-width: {wrapperWidth}px; max-height: {wrapperHeight}px;"
+                            >
                                 <img
                                     src={imagePreviewUrl}
                                     alt="Preview"
@@ -229,19 +223,33 @@
                                     draggable="false"
                                 />
                                 {#if highlightsEnabled && highlightRegions.length > 0 && wrapperWidth > 0}
-                                    <div style="position: absolute; inset: 0; pointer-events: none;">
+                                    <div
+                                        style="position: absolute; inset: 0; pointer-events: none;"
+                                    >
                                         {#each highlightRegions as region}
-                                            {@const isSelected = region.fieldName === selectedFieldName}
+                                            {@const isSelected =
+                                                region.fieldName ===
+                                                selectedFieldName}
                                             <div
                                                 style="
                                                     position: absolute;
-                                                    left: {region.boundingBox.x * 100}%;
-                                                    top: {region.boundingBox.y * 100}%;
-                                                    width: {region.boundingBox.width * 100}%;
-                                                    height: {region.boundingBox.height * 100}%;
-                                                    border: {isSelected ? '3px' : '2px'} solid {region.color};
-                                                    background-color: {region.color}{isSelected ? '33' : '15'};
-                                                    box-shadow: {isSelected ? `0 0 0 1px ${region.color}` : 'none'};
+                                                    left: {region.boundingBox
+                                                    .x * 100}%;
+                                                    top: {region.boundingBox.y *
+                                                    100}%;
+                                                    width: {region.boundingBox
+                                                    .width * 100}%;
+                                                    height: {region.boundingBox
+                                                    .height * 100}%;
+                                                    border: {isSelected
+                                                    ? '3px'
+                                                    : '2px'} solid {region.color};
+                                                    background-color: {region.color}{isSelected
+                                                    ? '33'
+                                                    : '15'};
+                                                    box-shadow: {isSelected
+                                                    ? `0 0 0 1px ${region.color}`
+                                                    : 'none'};
                                                     border-radius: 2px;
                                                 "
                                                 aria-hidden="true"
@@ -251,7 +259,7 @@
                                 {/if}
                             </div>
                         </div>
-                        {#if selectedFieldName && highlightsEnabled && highlightRegions.find(r => r.fieldName === selectedFieldName) === undefined}
+                        {#if selectedFieldName && highlightsEnabled && highlightRegions.find((r) => r.fieldName === selectedFieldName) === undefined}
                             <div
                                 class="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded border border-amber-300 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-sm"
                             >

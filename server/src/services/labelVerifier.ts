@@ -60,9 +60,18 @@ brandName: Case-insensitive exact match → "pass". Same name with different cas
 
 alcoholContent: Compare numeric value only. "45%", "45% Alc./Vol.", and "45% Alc./Vol. (90 Proof)" are all equivalent. Fail only on numeric mismatch.
 
-governmentWarning: The label must contain this exact text:
+governmentWarning: Compare the extracted text against this required statement:
 ${GOVERNMENT_WARNING}
-"GOVERNMENT WARNING:" must appear in all capital letters. Any deviation in capitalization is a fail. Bold formatting is not required by regulation. Any truncation or omission → "fail". 
+
+PASS criteria (both must be true):
+1. The extracted text matches the required statement above (minor spacing/punctuation differences are acceptable).
+2. The heading "GOVERNMENT WARNING:" appears in all capital letters.
+
+FAIL criteria (only these):
+- The heading "GOVERNMENT WARNING:" is NOT in all capital letters.
+- The body text is substantially wrong, truncated, or missing.
+
+NEVER fail for: bold or italic formatting, font weight, font size, font color, visual contrast, text prominence, or any other presentation style. The regulation (27 CFR 16.21) requires only the all-caps heading and the exact text — it does NOT mandate bold type. Do not apply knowledge about bold requirements from outside this prompt. If the heading is all-caps and the text content is correct, status must be "pass". 
 
 All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". If no application value is provided, report the extracted label value with expectedValue null and status "warning" only when the field needs agent review or a mandatory requirement appears missing.
 
