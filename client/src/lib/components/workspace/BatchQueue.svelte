@@ -82,7 +82,7 @@
         : 'opacity-70'}"
 >
     {#if jobId}
-        <CardHeader class="border-b bg-white py-3">
+        <CardHeader class="border-b bg-white py-2.5">
             <div
                 class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
             >
@@ -124,12 +124,12 @@
                 </div>
             </div>
         </CardHeader>
-        <CardContent class="bg-white p-3">
+        <CardContent class="bg-white p-2.5">
             <div
-                class="flex min-h-[6.5rem] overflow-hidden rounded-md border border-gray-200 bg-white"
+                class="flex min-h-[5.75rem] overflow-hidden rounded-md border border-gray-200 bg-white"
             >
                 <div
-                    class="flex w-[12.5rem] shrink-0 flex-col justify-between border-r border-gray-200 bg-gray-50 p-3"
+                    class="flex w-[12.5rem] shrink-0 flex-col justify-between border-r border-gray-200 bg-gray-50 p-2.5"
                 >
                     <div class="min-w-0">
                         <p class="truncate text-xs font-bold text-gray-900">
@@ -165,7 +165,7 @@
                     </div>
                 </div>
                 <div
-                    class="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto px-4 py-3"
+                    class="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto px-3 py-2.5"
                     role="list"
                     aria-label="Batch label filmstrip"
                 >
@@ -183,7 +183,7 @@
                                 title={`${label.filename} · ${label.result ? `${issues} issue${issues === 1 ? '' : 's'}` : STATUS_LABEL[label.status]}`}
                             >
                                 <div
-                                    class="relative h-16 w-16 overflow-hidden rounded border border-gray-200 bg-white"
+                                    class="relative h-14 w-14 overflow-hidden rounded border border-gray-200 bg-white"
                                 >
                                     {#if url}
                                         <img

@@ -16,6 +16,7 @@
         selectedFieldName = null,
         workstation = false,
         blankState = false,
+        hideFileInput = false,
         hoverScale = 2.5,
         onFileInput,
         onSelectFile,
@@ -30,6 +31,7 @@
         selectedFieldName?: string | null
         workstation?: boolean
         blankState?: boolean
+        hideFileInput?: boolean
         hoverScale?: number
         onFileInput: (e: Event) => void
         onSelectFile: (i: number) => void
@@ -102,13 +104,13 @@
                         </div>
                     </CardTitle>
                 </div>
-                {#if selectedFieldName}
+                <!-- {#if selectedFieldName}
                     <span
                         class="max-w-[45%] truncate rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800"
                     >
                         {formatFieldName(selectedFieldName)}
                     </span>
-                {/if}
+                {/if} -->
             </div>
         </CardHeader>
 
@@ -142,14 +144,16 @@
                     {/if}
                 </div>
             </div>
-            <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                class="sr-only"
-                onchange={onFileInput}
-                id="file-input-el"
-            />
+            {#if !hideFileInput}
+                <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    class="sr-only"
+                    onchange={onFileInput}
+                    id="file-input-el"
+                />
+            {/if}
 
             {#if imagePreviewUrl}
                 <div class="flex min-h-0 flex-1 flex-col gap-2">

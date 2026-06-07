@@ -7,13 +7,7 @@
     } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Tooltip } from '$lib/components/ui/tooltip'
-    import {
-        FileTextIcon,
-        FlagIcon,
-        InfoIcon,
-        ScaleIcon,
-        UploadIcon,
-    } from '$lib/components/ui/icon'
+    import { QueueIcon, UploadIcon } from '$lib/components/ui/icon'
 
     import MediaPanel from '$lib/components/workspace/MediaPanel.svelte'
     import ApplicationDataInput from '$lib/components/workspace/ApplicationDataInput.svelte'
@@ -81,6 +75,7 @@
               : 'Ready'
     )
     let reviewActive = $derived(result !== null || loading || error !== null)
+    let showReviewQueue = $derived(files.length > 1 || labels.length > 1)
 
     // ── File management ───────────────────────────────────────────────────────────
     function applyFiles(incoming: FileList | File[]) {
@@ -101,7 +96,6 @@
         jobId = null
         labels = []
         jobDone = false
-        void handleSubmitForFiles(valid)
     }
 
     function selectFile(index: number) {
@@ -458,7 +452,7 @@
 </script>
 
 <main
-    class="mx-auto h-full max-w-[2200px] overflow-y-auto px-4 py-3 flex flex-col bg-slate-50"
+    class="mx-auto flex h-screen max-w-[2200px] flex-col overflow-hidden bg-slate-50 px-4 py-3"
 >
     <header
         class="mb-3 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
@@ -517,22 +511,13 @@
         </div>
     </header>
 
-    {#if reviewActive}
-        <!-- Status banner -->
-        <div class="mb-3 shrink-0">
-            <VerificationReview
-                {result}
-                {loading}
-                {comparing}
-                {error}
-                mode="banner"
-                onMarkAllReviewed={handleMarkAllReviewed}
-            />
-        </div>
-
-        <!-- Application data input — shown after extraction and after comparison (for re-comparing) -->
-        <!-- {#if result !== null && !loading}
-            <div class="mb-3 shrink-0">
+    <!-- Persistent two-column layout -->
+    <div
+        class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(22rem,0.42fr)_1fr]"
+    >
+        <!-- LEFT PANEL: always visible -->
+        <div class="min-h-0 overflow-y-auto pr-1">
+            <div class="flex min-h-full flex-col gap-3">
                 <ApplicationDataInput
                     bind:brandName
                     bind:producerName
@@ -542,198 +527,189 @@
                     bind:countryOfOrigin
                     bind:alcoholContent
                     bind:netContents
-                    loading={comparing}
-                    hasResult={true}
-                    onCompare={handleCompare}
-                />
-            </div>
-        {/if} -->
-
-        <!-- #region Main two-column review area -->
-        <div
-            class="grid min-h-[400px] grid-cols-1 gap-3 lg:h-[34rem] lg:grid-cols-[minmax(22rem,0.75fr)_minmax(44rem,1.25fr)]"
-        >
-            <MediaPanel
-                {files}
-                {imagePreviewUrl}
-                {selectedFileIndex}
-                {jobId}
-                selectedFieldName={selectedReviewFieldName}
-                workstation
-                onFileInput={(e) => {
-                    const fl = (e.currentTarget as HTMLInputElement).files
-                    if (fl) applyFiles(fl)
-                }}
-                onSelectFile={selectFile}
-                onRemoveFile={removeFile}
-                {onDropZoneKeydown}
-                onUseSingleFile={useSingleFile}
-            />
-            <VerificationReview
-                {result}
-                {loading}
-                {comparing}
-                {error}
-                mode="body"
-                onSelectedFieldChange={(fieldName) =>
-                    (selectedReviewFieldName = fieldName)}
-                onExport={handleExport}
-                onMarkAllReviewed={handleMarkAllReviewed}
-            />
-        </div>
-
-        <!-- #region Batch queue -->
-        <div class="mt-3 shrink-0">
-            <BatchQueue
-                {jobId}
-                {jobDone}
-                {labels}
-                {completedCount}
-                {batchProgress}
-                {files}
-                {selectedFileIndex}
-                onSelectFile={selectFile}
-                onExportCsv={exportCsv}
-            />
-        </div>
-        <!-- #endregion -->
-    {:else}
-        <!-- #region Pre-upload layout -->
-        <div class="flex min-h-0 flex-1 flex-col gap-4">
-            <div
-                class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(22rem,0.82fr)_minmax(34rem,1.18fr)] lg:items-stretch"
-            >
-                <MediaPanel
-                    {files}
-                    {imagePreviewUrl}
-                    {selectedFileIndex}
-                    {jobId}
-                    selectedFieldName={selectedReviewFieldName}
-                    blankState
-                    onFileInput={(e) => {
-                        const fl = (e.currentTarget as HTMLInputElement).files
-                        if (fl) applyFiles(fl)
-                    }}
-                    onSelectFile={selectFile}
-                    onRemoveFile={removeFile}
-                    {onDropZoneKeydown}
-                    onUseSingleFile={useSingleFile}
+                    {loading}
                 />
 
-                <div class="flex min-h-0 min-w-0 flex-col gap-4">
-                    <section
-                        class="rounded-md border border-gray-200 bg-white shadow-sm pb-4"
-                    >
-                        <div class="min-w-0 border-b border-gray-200 p-4">
-                            <h2
-                                class="inline-flex items-center gap-3 text-lg font-semibold text-gray-950"
-                            >
-                                <UploadIcon
-                                    size={24}
-                                    className="text-gray-600"
-                                />
-                                Upload a Label to Begin
-                            </h2>
-                            <p
-                                class="mt-1 max-w-3xl text-sm text-gray-600 font-medium"
-                            >
-                                Upload a label image to start extraction and
-                                review.
-                            </p>
-                            <p
-                                class="mt-1 max-w-3xl text-sm text-gray-600 font-normal"
-                            >
-                                Application data can be added before or after
-                                upload.
-                            </p>
-                        </div>
-
-                        <div
-                            class="mx-4 mt-5 grid grid-cols-1 overflow-hidden rounded border border-gray-200 bg-white sm:grid-cols-3"
-                        >
-                            <div class="flex items-center gap-3 px-4 py-3">
-                                <FileTextIcon
-                                    size={32}
-                                    className="shrink-0 text-blue-700"
-                                />
-                                <div class="flex flex-col p-2">
-                                    <p
-                                        class="text-sm font-semibold text-slate-800"
-                                    >
-                                        Extract fields
-                                    </p>
-                                    <p class="text-xs text-gray-500">
-                                        AI extracts label fields and values
-                                    </p>
-                                </div>
-                            </div>
-                            <div
-                                class="flex items-center gap-3 border-t border-gray-200 px-4 sm:border-l sm:border-t-0"
-                            >
-                                <ScaleIcon
-                                    size={32}
-                                    className="shrink-0 text-blue-700"
-                                />
-                                <div class="flex flex-col p-2">
-                                    <p
-                                        class="text-sm font-semibold text-slate-800"
-                                    >
-                                        Compare data
-                                    </p>
-                                    <p class="text-xs text-gray-500">
-                                        Match application values
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div
-                                class="flex items-center gap-1 border-t border-gray-200 px-4 sm:border-l sm:border-t-0"
-                            >
-                                <FlagIcon
-                                    size={32}
-                                    className="shrink-0 text-blue-700"
-                                />
-                                <div class="flex flex-col p-2">
-                                    <p
-                                        class="text-sm font-semibold text-slate-800"
-                                    >
-                                        Flag issues
-                                    </p>
-                                    <p class="text-xs text-gray-500">
-                                        Show items needing review
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- <div
-                            class="mx-4 mb-4 mt-5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
-                        >
-                            <InfoIcon size={18} className="shrink-0" />
-                            Uploading a label starts the review workflow.
-                        </div> -->
-                    </section>
-
-                    <!-- Optional: paste application data before upload -->
-                    <div class="min-h-0 flex-1">
-                        <ApplicationDataInput
-                            bind:brandName
-                            bind:producerName
-                            bind:beverageType
-                            bind:classType
-                            bind:producerAddress
-                            bind:countryOfOrigin
-                            bind:alcoholContent
-                            bind:netContents
-                            {loading}
-                            hasResult={false}
-                            blankState
-                            onCompare={handleCompare}
+                <!-- Label image upload -->
+                <div
+                    class="flex min-h-[14rem] flex-1 flex-col rounded-md border border-gray-200 bg-white shadow-sm"
+                >
+                    <div class="border-b border-gray-200 px-4 py-3">
+                        <h3 class="text-sm font-semibold text-gray-950">
+                            Label Image
+                        </h3>
+                        <p class="mt-0.5 text-xs text-gray-500">
+                            Upload the label image to extract and verify fields.
+                        </p>
+                    </div>
+                    <div class="flex min-h-0 flex-1 p-4">
+                        <input
+                            type="file"
+                            id="file-input-el"
+                            accept="image/jpeg,image/png,image/webp"
+                            multiple
+                            class="sr-only"
+                            onchange={(e) => {
+                                const fl = (e.currentTarget as HTMLInputElement)
+                                    .files
+                                if (fl) applyFiles(fl)
+                            }}
                         />
+                        {#if files.length > 0}
+                            <div
+                                class="flex items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2"
+                            >
+                                <span
+                                    class="truncate text-sm font-medium text-gray-700"
+                                    >{files[selectedFileIndex ?? 0]?.name ??
+                                        files[0].name}</span
+                                >
+                                <button
+                                    type="button"
+                                    class="shrink-0 rounded text-xs font-medium text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                    onclick={() =>
+                                        document
+                                            .getElementById('file-input-el')
+                                            ?.click()}
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        {:else}
+                            <button
+                                type="button"
+                                class="flex min-h-[12rem] w-full flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 bg-white p-6 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                aria-label="Upload label image"
+                                onclick={() =>
+                                    document
+                                        .getElementById('file-input-el')
+                                        ?.click()}
+                            >
+                                <div
+                                    class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+                                >
+                                    <UploadIcon
+                                        size={20}
+                                        className="text-gray-500"
+                                    />
+                                </div>
+                                <p class="text-sm font-semibold text-gray-700">
+                                    Drag and drop label image here
+                                </p>
+                                <p class="text-xs text-gray-500">or</p>
+                                <span
+                                    class="rounded border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                    Browse Files
+                                </span>
+                                <p class="text-xs text-gray-400">
+                                    JPEG, PNG, WebP supported
+                                </p>
+                            </button>
+                        {/if}
                     </div>
                 </div>
-            </div>
 
+                <!-- Verify button -->
+                <div
+                    class="sticky bottom-0 z-20 -mx-1 flex shrink-0 flex-col gap-1.5 bg-slate-50/95 px-1 pb-1 pt-3 backdrop-blur mt-auto"
+                >
+                    <Button
+                        disabled={files.length === 0 || loading || submitting}
+                        onclick={handleSubmit}
+                        class="h-11 w-full bg-blue-900 font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                    >
+                        {#if loading}
+                            Verifying…
+                        {:else}
+                            <svg
+                                class="mr-2 h-4 w-4 shrink-0"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                aria-hidden="true"
+                            >
+                                <path d="M9 11l3 3L22 4" /><path
+                                    d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                                />
+                            </svg>
+                            Verify Label
+                        {/if}
+                    </Button>
+                    {#if files.length === 0}
+                        <p class="text-center text-xs text-gray-400">
+                            Upload a label image to enable verification.
+                        </p>
+                    {/if}
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: results -->
+        <div class="flex min-h-0 flex-col">
+            {#if reviewActive}
+                <div
+                    class="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(18rem,0.55fr)_1fr]"
+                >
+                    <MediaPanel
+                        {files}
+                        {imagePreviewUrl}
+                        {selectedFileIndex}
+                        {jobId}
+                        selectedFieldName={selectedReviewFieldName}
+                        workstation
+                        hideFileInput={true}
+                        onFileInput={(e) => {
+                            const fl = (e.currentTarget as HTMLInputElement)
+                                .files
+                            if (fl) applyFiles(fl)
+                        }}
+                        onSelectFile={selectFile}
+                        onRemoveFile={removeFile}
+                        {onDropZoneKeydown}
+                        onUseSingleFile={useSingleFile}
+                    />
+                    <VerificationReview
+                        {result}
+                        {loading}
+                        {comparing}
+                        {error}
+                        mode="body"
+                        onSelectedFieldChange={(fieldName) =>
+                            (selectedReviewFieldName = fieldName)}
+                        onExport={handleExport}
+                        onMarkAllReviewed={handleMarkAllReviewed}
+                    />
+                </div>
+            {:else}
+                <div
+                    class="flex min-h-0 flex-1 items-center justify-center rounded-md border border-gray-200 bg-white shadow-sm"
+                >
+                    <div
+                        class="flex flex-col items-center gap-3 p-8 text-center"
+                    >
+                        <div
+                            class="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100"
+                        >
+                            <QueueIcon size={28} className="text-gray-400" />
+                        </div>
+                        <p class="text-base font-semibold text-gray-700">
+                            No verification results yet
+                        </p>
+                        <p class="max-w-xs text-sm text-gray-400">
+                            Upload a label image and click "Verify Label" to see
+                            results here.
+                        </p>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </div>
+
+    {#if showReviewQueue}
+        <!-- Batch queue — shown only for multi-label review -->
+        <div class="mt-3 shrink-0">
             <BatchQueue
                 {jobId}
                 {jobDone}
