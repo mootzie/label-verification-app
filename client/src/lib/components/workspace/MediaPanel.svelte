@@ -76,7 +76,7 @@
     }
 
     function setZoom(next: number) {
-        zoomLevel = Math.min(4, Math.max(1.25, Number(next.toFixed(2))))
+        zoomLevel = Math.min(4, Math.max(1.5, Number(next.toFixed(2))))
     }
 </script>
 

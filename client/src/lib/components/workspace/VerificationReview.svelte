@@ -11,11 +11,11 @@
         FieldStatus,
         VerificationResult,
     } from '$shared/index'
-    import {
-        BEVERAGE_FIELD_SETS,
-        REQUIREMENT_BADGE,
+    import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverage-fields'
+    import type {
+        BeverageFieldDef,
+        BeverageType,
     } from '$lib/utils/beverage-fields'
-    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverage-fields'
 
     let {
         result,
@@ -99,9 +99,7 @@
         }
     })
 
-    let issueFields = $derived(
-        visibleFields.filter((f) => f.status !== 'pass')
-    )
+    let issueFields = $derived(visibleFields.filter((f) => f.status !== 'pass'))
 
     let isExtractionOnly = $derived(
         result !== null &&
@@ -223,6 +221,22 @@
         if (status === 'warning') return '!'
         if (status === 'fail') return '×'
         return '—'
+    }
+
+    function statusAccentClass(field: FieldResult) {
+        if (isOptionalNotFound(field)) return 'bg-gray-400'
+        if (field.status === 'pass') return 'bg-green-500'
+        if (field.status === 'warning') return 'bg-amber-500'
+        if (field.status === 'fail') return 'bg-red-500'
+        return 'bg-gray-400'
+    }
+
+    function statusAccentColor(field: FieldResult) {
+        if (isOptionalNotFound(field)) return '#9ca3af'
+        if (field.status === 'pass') return '#22c55e'
+        if (field.status === 'warning') return '#f59e0b'
+        if (field.status === 'fail') return '#ef4444'
+        return '#9ca3af'
     }
 
     function displayValue(value: string | null | undefined) {
@@ -428,7 +442,8 @@
                                         <span
                                             class="mt-0.5 block text-[11px] font-medium italic text-gray-400"
                                         >
-                                            No application data — extraction only
+                                            No application data — extraction
+                                            only
                                         </span>
                                     {/if}
                                 </th>
@@ -442,88 +457,87 @@
                                     field.fieldName}
                                 {@const expanded =
                                     expandedFields[field.fieldName] === true}
-                                {@const fieldDef = fieldDefMap.get(field.fieldName)}
                                 <tr
                                     class="hover:cursor-pointer {selected
                                         ? 'bg-blue-50'
-                                        : 'bg-white hover:bg-slate-50'} align-top transition-colors focus-within:bg-blue-50"
+                                        : 'bg-white hover:bg-slate-50'} align-middle transition-colors focus-within:bg-blue-50"
                                     style="box-shadow: inset 3px 0 0 {selected
-                                        ? '#3b82f6'
+                                        ? statusAccentColor(field)
                                         : 'transparent'};"
                                     onclick={() => toggleExpanded(field)}
                                 >
-                                    <td class="px-3 py-1.5">
+                                    <td class="px-3 py-1.5 align-middle">
                                         <button
                                             type="button"
-                                            class="flex w-full items-start h-full gap-2 text-left focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                            class="flex h-full w-full items-center gap-2 text-left focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                                             onclick={() => selectField(field)}
                                             title={formatFieldName(
                                                 field.fieldName
                                             )}
                                         >
                                             <span
-                                                class="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-blue-500"
+                                                class="h-2.5 w-2.5 shrink-0 rounded-sm {statusAccentClass(
+                                                    field
+                                                )}"
                                                 aria-hidden="true"
                                             ></span>
                                             <span class="min-w-0">
-                                                <span class="block truncate text-sm font-semibold text-gray-950"
+                                                <span
+                                                    class="block truncate text-sm font-semibold text-gray-950"
                                                     >{formatFieldName(
                                                         field.fieldName
                                                     )}</span
                                                 >
-                                                {#if fieldDef && fieldDef.requirement !== 'required'}
-                                                    <span class="mt-0.5 inline-block rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-400">
-                                                        {REQUIREMENT_BADGE[fieldDef.requirement]}
-                                                    </span>
-                                                {/if}
                                             </span>
                                         </button>
                                     </td>
                                     <td
-                                        class="px-3 py-1.5 text-xs leading-5 text-gray-800 flex items-center h-full"
+                                        class="px-3 py-1.5 align-middle text-xs leading-5 text-gray-800"
                                     >
-                                        <span
-                                            class="line-clamp-2 break-words h-full flex items-center"
+                                        <span class="line-clamp-2 break-words"
                                             >{displayValue(
                                                 field.foundValue
                                             )}</span
                                         >
                                     </td>
-                                    <td class="px-3 py-1.5 text-xs leading-5">
+                                    <td
+                                        class="px-3 py-1.5 align-middle text-xs leading-5"
+                                    >
                                         {#if isExtractionOnly}
                                             <span class="sr-only">
                                                 No application data provided
                                             </span>
                                         {:else if field.expectedValue}
                                             <span
-                                                class="line-clamp-2 break-words text-gray-800 flex items-center h-full"
+                                                class="line-clamp-2 break-words text-gray-800"
                                                 >{field.expectedValue}</span
                                             >
                                         {:else}
-                                            <span
-                                                class="italic text-gray-400 flex items-center h-full"
+                                            <span class="italic text-gray-400"
                                                 >Not provided</span
                                             >
                                         {/if}
                                     </td>
-                                    <td class="px-3 py-1.5">
-                                        <div class="flex items-center h-full">
+                                    <td class="px-3 py-1.5 align-middle">
+                                        <div class="flex items-center">
                                             {#if isOptionalNotFound(field)}
-                                                <span class="rounded border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                                                <span
+                                                    class="rounded border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500"
+                                                >
                                                     N/A
                                                 </span>
                                             {:else}
-                                            <Badge
-                                                variant={field.status}
-                                                class="gap-1 border-0 px-2 py-0.5 text-[11px]"
-                                            >
-                                                <span aria-hidden="true"
-                                                    >{statusGlyph(
-                                                        field.status
-                                                    )}</span
+                                                <Badge
+                                                    variant={field.status}
+                                                    class="gap-1 border-0 px-2 py-0.5 text-[11px]"
                                                 >
-                                                {STATUS_LABEL[field.status]}
-                                            </Badge>
+                                                    <span aria-hidden="true"
+                                                        >{statusGlyph(
+                                                            field.status
+                                                        )}</span
+                                                    >
+                                                    {STATUS_LABEL[field.status]}
+                                                </Badge>
                                             {/if}
                                             {#if decisionFor(field.fieldName) !== 'unreviewed'}
                                                 <div class="mt-1">
@@ -558,15 +572,17 @@
                                 </tr>
                                 {#if expanded}
                                     <tr
-                                        class="bg-blue-50"
-                                        style="box-shadow: inset 3px 0 0 #3b82f6;"
+                                        class="bg-slate-50"
+                                        style="box-shadow: inset 3px 0 0 {statusAccentColor(
+                                            field
+                                        )};"
                                     >
                                         <td
                                             colspan="4"
                                             class="border-t px-4 py-3"
                                         >
                                             <div
-                                                class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_9rem]"
+                                                class="grid gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(0,1fr)_10rem]"
                                             >
                                                 <div class="min-w-0">
                                                     <span
@@ -574,19 +590,26 @@
                                                         >Review notes</span
                                                     >
                                                     <div
-                                                        class="rounded-md border border-blue-200 bg-white/80 px-3 py-2 text-xs leading-5 text-gray-700"
+                                                        class="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950"
                                                     >
-                                                        {reviewNote(field)}
-                                                    </div>
-                                                    <label class="mt-2 block">
                                                         <span
-                                                            class="sr-only"
-                                                            >Agent comment</span
+                                                            class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                                                            aria-hidden="true"
+                                                        ></span>
+                                                        <p>
+                                                            {reviewNote(field)}
+                                                        </p>
+                                                    </div>
+                                                    <label class="mt-3 block">
+                                                        <span
+                                                            class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
+                                                            >Agent comment
+                                                            (optional)</span
                                                         >
                                                         <input
                                                             type="text"
-                                                            class="h-9 w-full rounded border border-gray-300 bg-white px-3 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                                            placeholder="Agent comment (optional)"
+                                                            class="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-xs text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                            placeholder="Add a comment..."
                                                             value={agentComments[
                                                                 field.fieldName
                                                             ] ?? ''}
@@ -601,12 +624,12 @@
                                                     </label>
                                                 </div>
                                                 <div
-                                                    class="flex flex-col justify-center gap-2"
+                                                    class="flex flex-col justify-end gap-2"
                                                 >
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        class="border-gray-300 bg-white text-gray-800 hover:bg-gray-50 {decisionFor(
+                                                        class="h-9 border-gray-300 bg-white text-gray-800 hover:bg-gray-50 {decisionFor(
                                                             field.fieldName
                                                         ) ===
                                                         'accepted_variation'
@@ -621,7 +644,7 @@
                                                     >
                                                     <Button
                                                         size="sm"
-                                                        class="bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
+                                                        class="h-9 bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
                                                             field.fieldName
                                                         ) === 'escalated'
                                                             ? 'ring-2 ring-amber-400'
@@ -630,8 +653,7 @@
                                                             setDecision(
                                                                 field.fieldName,
                                                                 'escalated'
-                                                            )}
-                                                        >Escalate</Button
+                                                            )}>Escalate</Button
                                                     >
                                                 </div>
                                             </div>
@@ -672,9 +694,7 @@
             {/if}
         {:else if loading}
             <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div
-                    class="border-b border-blue-100 bg-blue-50/70 px-4 py-3"
-                >
+                <div class="border-b border-blue-100 bg-blue-50/70 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <p class="text-sm font-bold text-blue-950">
@@ -756,24 +776,6 @@
                             {/each}
                         </div>
                     </div>
-                </div>
-            </div>
-            <div
-                class="h-[190px] shrink-0 border-t bg-gray-50 px-4 py-3"
-            >
-                <p class="text-xs font-bold uppercase text-gray-500">
-                    Selected Issue Details
-                </p>
-                <div class="mt-3 space-y-2">
-                    <div
-                        class="h-3 w-48 animate-pulse rounded bg-gray-200"
-                    ></div>
-                    <div
-                        class="h-3 w-3/4 animate-pulse rounded bg-gray-100"
-                    ></div>
-                    <div
-                        class="h-3 w-2/3 animate-pulse rounded bg-gray-100"
-                    ></div>
                 </div>
             </div>
         {:else if error}
