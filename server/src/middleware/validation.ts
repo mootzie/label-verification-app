@@ -15,5 +15,12 @@ export const LabelApplicationSchema = z
     countryOfOrigin: z.string().optional(),
     appellation: z.string().optional(),
     vintageYear: z.string().optional(),
+    ageStatement: z.string().optional(),
+    colorDisclosures: z.string().optional(),
+    commodityStatement: z.string().optional(),
+    sulfiteDeclaration: z.string().optional(),
+    foreignWinePct: z.string().optional(),
+    colorAdditives: z.string().optional(),
+    aspartameDeclaration: z.string().optional(),
   })
   .partial();

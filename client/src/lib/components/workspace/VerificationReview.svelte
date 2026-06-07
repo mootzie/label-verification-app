@@ -11,6 +11,11 @@
         FieldStatus,
         VerificationResult,
     } from '$shared/index'
+    import {
+        BEVERAGE_FIELD_SETS,
+        REQUIREMENT_BADGE,
+    } from '$lib/utils/beverage-fields'
+    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverage-fields'
 
     let {
         result,
@@ -18,6 +23,7 @@
         comparing = false,
         error,
         mode = 'body',
+        beverageType = 'distilled_spirits' as BeverageType,
         onSelectedFieldChange,
         onExport,
         onMarkAllReviewed,
@@ -27,6 +33,7 @@
         comparing?: boolean
         error: string | null
         mode?: 'banner' | 'body'
+        beverageType?: BeverageType
         onSelectedFieldChange?: (fieldName: string | null) => void
         onExport?: (decisions: ReviewDecisions) => void
         onMarkAllReviewed?: (decisions: ReviewDecisions) => void
@@ -42,44 +49,72 @@
     //     not_found: 'border-gray-500 bg-gray-50',
     // }
 
-    type DraftField = {
-        foundValue: string
-        expectedValue: string
-        note: string
-    }
-
     let selectedFieldName = $state<string | null>(null)
-    let expandedFieldName = $state<string | null>(null)
-    let drafts = $state<Record<string, DraftField>>({})
+    let expandedFields = $state<Record<string, boolean>>({})
+    let agentComments = $state<Record<string, string>>({})
     let decisions = $state<ReviewDecisions>({})
     let markAllMessage = $state<string | null>(null)
+
+    // fieldDefMap: resultKey (camelCase) → BeverageFieldDef for the active type
+    // name_address splits into producerName + producerAddress — both map to the same def
+    let fieldDefMap = $derived.by(() => {
+        const map = new Map<string, BeverageFieldDef>()
+        for (const f of BEVERAGE_FIELD_SETS[beverageType]) {
+            map.set(f.resultKey, f)
+            if (f.formKey === 'name_address') map.set('producerAddress', f)
+        }
+        return map
+    })
+
+    let validResultKeys = $derived.by(() => {
+        const keys = new Set<string>()
+        for (const f of BEVERAGE_FIELD_SETS[beverageType]) {
+            keys.add(f.resultKey)
+            if (f.formKey === 'name_address') keys.add('producerAddress')
+        }
+        return keys
+    })
+
+    let visibleFields = $derived(
+        result?.fields.filter((f) => validResultKeys.has(f.fieldName)) ?? []
+    )
 
     // Reset decisions when result reference changes (new label loaded)
     let _lastResultRef = $state<VerificationResult | null>(null)
     $effect(() => {
         if (result !== _lastResultRef) {
             decisions = {}
+            agentComments = {}
+            expandedFields = visibleFields.reduce<Record<string, boolean>>(
+                (acc, field) => {
+                    if (field.status === 'warning' || field.status === 'fail') {
+                        acc[field.fieldName] = true
+                    }
+                    return acc
+                },
+                {}
+            )
             markAllMessage = null
             _lastResultRef = result
         }
     })
 
     let issueFields = $derived(
-        result?.fields.filter((f) => f.status !== 'pass') ?? []
+        visibleFields.filter((f) => f.status !== 'pass')
     )
 
     let isExtractionOnly = $derived(
         result !== null &&
-            result.fields.length > 0 &&
-            result.fields.every((f) => f.expectedValue === null)
+            visibleFields.length > 0 &&
+            visibleFields.every((f) => f.expectedValue == null)
     )
 
     let selectedField = $derived.by(() => {
         if (!result) return null
         const preferred = selectedFieldName
-            ? result.fields.find((f) => f.fieldName === selectedFieldName)
+            ? visibleFields.find((f) => f.fieldName === selectedFieldName)
             : null
-        return preferred ?? issueFields[0] ?? result.fields[0] ?? null
+        return preferred ?? issueFields[0] ?? visibleFields[0] ?? null
     })
 
     let governmentWarning = $derived(
@@ -88,20 +123,18 @@
 
     $effect(() => {
         if (mode !== 'body') return
-        if (!result || result.fields.length === 0) {
+        if (!result || visibleFields.length === 0) {
             selectedFieldName = null
-            expandedFieldName = null
             onSelectedFieldChange?.(null)
             return
         }
         if (
             !selectedFieldName ||
-            !result.fields.some((f) => f.fieldName === selectedFieldName)
+            !visibleFields.some((f) => f.fieldName === selectedFieldName)
         ) {
             const next =
-                issueFields[0]?.fieldName ?? result.fields[0]?.fieldName ?? null
+                issueFields[0]?.fieldName ?? visibleFields[0]?.fieldName ?? null
             selectedFieldName = next
-            expandedFieldName = next
             onSelectedFieldChange?.(next)
         }
     })
@@ -113,46 +146,14 @@
 
     function toggleExpanded(field: FieldResult) {
         selectField(field)
-        expandedFieldName =
-            expandedFieldName === field.fieldName ? null : field.fieldName
-        ensureDraft(field)
-    }
-
-    function ensureDraft(field: FieldResult) {
-        if (drafts[field.fieldName]) return
-        drafts = {
-            ...drafts,
-            [field.fieldName]: {
-                foundValue: field.foundValue ?? '',
-                expectedValue: field.expectedValue ?? '',
-                note: field.notes ?? '',
-            },
+        expandedFields = {
+            ...expandedFields,
+            [field.fieldName]: !expandedFields[field.fieldName],
         }
     }
 
-    function updateDraft(
-        field: FieldResult,
-        key: keyof DraftField,
-        value: string
-    ) {
-        ensureDraft(field)
-        drafts = {
-            ...drafts,
-            [field.fieldName]: {
-                ...drafts[field.fieldName],
-                [key]: value,
-            },
-        }
-    }
-
-    function draftFor(field: FieldResult): DraftField {
-        return (
-            drafts[field.fieldName] ?? {
-                foundValue: field.foundValue ?? '',
-                expectedValue: field.expectedValue ?? '',
-                note: field.notes ?? '',
-            }
-        )
+    function setAgentComment(fieldName: string, value: string) {
+        agentComments = { ...agentComments, [fieldName]: value }
     }
 
     function decisionFor(fieldName: string): ReviewDecision {
@@ -239,6 +240,16 @@
         return `${(result.processingTimeMs / 1000).toFixed(1)}s`
     }
 
+    function reviewNote(field: FieldResult) {
+        if (field.notes) return field.notes
+        if (field.status === 'pass') return 'Exact match. No action needed.'
+        if (field.status === 'warning')
+            return 'Minor variation detected. Review before approval.'
+        if (field.status === 'fail')
+            return 'Application value does not match the label value.'
+        return 'Text was not found on the label.'
+    }
+
     // function issueReason(field: FieldResult) {
     //     if (field.notes) return field.notes
     //     if (field.status === 'not_found')
@@ -259,6 +270,19 @@
 
     function normalizedWarning(value: string | null | undefined) {
         return (value ?? '').replace(/\s+/g, ' ').trim()
+    }
+
+    // True when a field is optional (if_applicable / imports_only) and absent —
+    // should show "N/A" rather than a fail/not_found badge.
+    function isOptionalNotFound(field: FieldResult): boolean {
+        const def = fieldDefMap.get(field.fieldName)
+        return (
+            !!def &&
+            (def.requirement === 'if_applicable' ||
+                def.requirement === 'imports_only') &&
+            !field.foundValue &&
+            (field.status === 'not_found' || field.status === 'pass')
+        )
     }
 
     // function showGovernmentDetails() {
@@ -391,26 +415,34 @@
                         class="w-full min-w-[760px] table-fixed text-left text-sm h-full"
                     >
                         <thead
-                            class="sticky top-0 z-10 border-b border-gray-300 bg-gray-100 text-[11px] font-bold uppercase text-gray-600 shadow-sm"
+                            class="sticky top-0 z-10 border-b border-gray-300 bg-gray-100 text-[11px] font-bold text-gray-600 shadow-sm"
                         >
                             <tr>
                                 <th class="w-[18%] px-3 py-2">Field</th>
                                 <th class="w-[32%] px-3 py-2"
-                                    >Label (Extracted)</th
+                                    >Label (extracted)</th
                                 >
-                                <th class="w-[32%] px-3 py-2"
-                                    >Application (Provided)</th
-                                >
+                                <th class="w-[32%] px-3 py-2">
+                                    <span>Application (provided)</span>
+                                    {#if isExtractionOnly}
+                                        <span
+                                            class="mt-0.5 block text-[11px] font-medium italic text-gray-400"
+                                        >
+                                            No application data — extraction only
+                                        </span>
+                                    {/if}
+                                </th>
                                 <th class="w-[13%] px-3 py-2">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            {#each result.fields as field}
+                            {#each visibleFields as field}
                                 {@const selected =
                                     selectedField?.fieldName ===
                                     field.fieldName}
                                 {@const expanded =
-                                    expandedFieldName === field.fieldName}
+                                    expandedFields[field.fieldName] === true}
+                                {@const fieldDef = fieldDefMap.get(field.fieldName)}
                                 <tr
                                     class="hover:cursor-pointer {selected
                                         ? 'bg-blue-50'
@@ -423,21 +455,28 @@
                                     <td class="px-3 py-1.5">
                                         <button
                                             type="button"
-                                            class="flex w-full items-center h-full gap-2 truncate text-left text-sm font-semibold text-gray-950 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                            class="flex w-full items-start h-full gap-2 text-left focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                                             onclick={() => selectField(field)}
                                             title={formatFieldName(
                                                 field.fieldName
                                             )}
                                         >
                                             <span
-                                                class="h-2.5 w-2.5 shrink-0 rounded-sm bg-blue-500"
+                                                class="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-blue-500"
                                                 aria-hidden="true"
                                             ></span>
-                                            <span class="truncate"
-                                                >{formatFieldName(
-                                                    field.fieldName
-                                                )}</span
-                                            >
+                                            <span class="min-w-0">
+                                                <span class="block truncate text-sm font-semibold text-gray-950"
+                                                    >{formatFieldName(
+                                                        field.fieldName
+                                                    )}</span
+                                                >
+                                                {#if fieldDef && fieldDef.requirement !== 'required'}
+                                                    <span class="mt-0.5 inline-block rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal text-gray-400">
+                                                        {REQUIREMENT_BADGE[fieldDef.requirement]}
+                                                    </span>
+                                                {/if}
+                                            </span>
                                         </button>
                                     </td>
                                     <td
@@ -451,7 +490,11 @@
                                         >
                                     </td>
                                     <td class="px-3 py-1.5 text-xs leading-5">
-                                        {#if field.expectedValue}
+                                        {#if isExtractionOnly}
+                                            <span class="sr-only">
+                                                No application data provided
+                                            </span>
+                                        {:else if field.expectedValue}
                                             <span
                                                 class="line-clamp-2 break-words text-gray-800 flex items-center h-full"
                                                 >{field.expectedValue}</span
@@ -465,6 +508,11 @@
                                     </td>
                                     <td class="px-3 py-1.5">
                                         <div class="flex items-center h-full">
+                                            {#if isOptionalNotFound(field)}
+                                                <span class="rounded border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                                                    N/A
+                                                </span>
+                                            {:else}
                                             <Badge
                                                 variant={field.status}
                                                 class="gap-1 border-0 px-2 py-0.5 text-[11px]"
@@ -476,6 +524,7 @@
                                                 >
                                                 {STATUS_LABEL[field.status]}
                                             </Badge>
+                                            {/if}
                                             {#if decisionFor(field.fieldName) !== 'unreviewed'}
                                                 <div class="mt-1">
                                                     <span
@@ -508,122 +557,82 @@
                                     </td>
                                 </tr>
                                 {#if expanded}
-                                    {@const draft = draftFor(field)}
                                     <tr
                                         class="bg-blue-50"
                                         style="box-shadow: inset 3px 0 0 #3b82f6;"
                                     >
                                         <td
                                             colspan="4"
-                                            class="border-t px-4 py-4"
+                                            class="border-t px-4 py-3"
                                         >
                                             <div
-                                                class="grid gap-2 lg:grid-cols-[1fr_1fr_1.1fr_auto]"
+                                                class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_9rem]"
                                             >
-                                                <label class="block">
+                                                <div class="min-w-0">
                                                     <span
                                                         class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
-                                                        >Extracted Value</span
+                                                        >Review notes</span
                                                     >
-                                                    <textarea
-                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                                        value={draft.foundValue}
-                                                        oninput={(e) =>
-                                                            updateDraft(
-                                                                field,
-                                                                'foundValue',
-                                                                e.currentTarget
-                                                                    .value
-                                                            )}
-                                                    ></textarea>
-                                                </label>
-                                                <label class="block">
-                                                    <span
-                                                        class="mb-1 block text-[10px] font-bold uppercase text-gray-500"
-                                                        >Edit Application Value</span
+                                                    <div
+                                                        class="rounded-md border border-blue-200 bg-white/80 px-3 py-2 text-xs leading-5 text-gray-700"
                                                     >
-                                                    <textarea
-                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                                        value={draft.expectedValue}
-                                                        oninput={(e) =>
-                                                            updateDraft(
-                                                                field,
-                                                                'expectedValue',
-                                                                e.currentTarget
-                                                                    .value
-                                                            )}
-                                                    ></textarea>
-                                                </label>
-                                                <label class="block">
-                                                    <span
-                                                        class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
-                                                        >Review Notes</span
-                                                    >
-                                                    <textarea
-                                                        class="h-32 w-full resize-none rounded border border-gray-300 bg-white px-2.5 py-2 text-xs leading-5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                                        value={draft.note}
-                                                        placeholder="Add review comment"
-                                                        oninput={(e) =>
-                                                            updateDraft(
-                                                                field,
-                                                                'note',
-                                                                e.currentTarget
-                                                                    .value
-                                                            )}
-                                                    ></textarea>
-                                                </label>
+                                                        {reviewNote(field)}
+                                                    </div>
+                                                    <label class="mt-2 block">
+                                                        <span
+                                                            class="sr-only"
+                                                            >Agent comment</span
+                                                        >
+                                                        <input
+                                                            type="text"
+                                                            class="h-9 w-full rounded border border-gray-300 bg-white px-3 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                            placeholder="Agent comment (optional)"
+                                                            value={agentComments[
+                                                                field.fieldName
+                                                            ] ?? ''}
+                                                            oninput={(e) =>
+                                                                setAgentComment(
+                                                                    field.fieldName,
+                                                                    e
+                                                                        .currentTarget
+                                                                        .value
+                                                                )}
+                                                        />
+                                                    </label>
+                                                </div>
                                                 <div
                                                     class="flex flex-col justify-center gap-2"
                                                 >
-                                                    {#if field.status === 'warning' || field.status === 'fail'}
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            class="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 {decisionFor(
-                                                                field.fieldName
-                                                            ) ===
-                                                            'accepted_variation'
-                                                                ? 'ring-2 ring-amber-400'
-                                                                : ''}"
-                                                            onclick={() =>
-                                                                setDecision(
-                                                                    field.fieldName,
-                                                                    'accepted_variation'
-                                                                )}
-                                                            >Accept Variation</Button
-                                                        >
-                                                    {/if}
-                                                    <!-- <Button
-                                                        variant="ghost"
+                                                    <Button
+                                                        variant="outline"
                                                         size="sm"
-                                                        class="justify-start text-gray-700 hover:bg-gray-100 {decisionFor(
+                                                        class="border-gray-300 bg-white text-gray-800 hover:bg-gray-50 {decisionFor(
                                                             field.fieldName
-                                                        ) === 'reviewed'
-                                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                        ) ===
+                                                        'accepted_variation'
+                                                            ? 'ring-2 ring-amber-400'
                                                             : ''}"
                                                         onclick={() =>
                                                             setDecision(
                                                                 field.fieldName,
-                                                                'reviewed'
+                                                                'accepted_variation'
                                                             )}
-                                                        >Mark Reviewed</Button
-                                                    > -->
-                                                    {#if field.status !== 'pass'}
-                                                        <Button
-                                                            size="sm"
-                                                            class="bg-blue-900 hover:bg-blue-800 {decisionFor(
-                                                                field.fieldName
-                                                            ) === 'escalated'
-                                                                ? 'ring-2 ring-red-400'
-                                                                : ''}"
-                                                            onclick={() =>
-                                                                setDecision(
-                                                                    field.fieldName,
-                                                                    'escalated'
-                                                                )}
-                                                            >Escalate</Button
-                                                        >
-                                                    {/if}
+                                                        >Accept variation</Button
+                                                    >
+                                                    <Button
+                                                        size="sm"
+                                                        class="bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
+                                                            field.fieldName
+                                                        ) === 'escalated'
+                                                            ? 'ring-2 ring-amber-400'
+                                                            : ''}"
+                                                        onclick={() =>
+                                                            setDecision(
+                                                                field.fieldName,
+                                                                'escalated'
+                                                            )}
+                                                        >Escalate</Button
+                                                    >
                                                 </div>
                                             </div>
                                             <!-- {#if field.fieldName === 'governmentWarning' || (governmentWarning !== null && governmentWarning.status !== 'pass')}
@@ -662,17 +671,110 @@
                 </div>
             {/if}
         {:else if loading}
-            <div class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5">
-                <div class="h-3 w-40 animate-pulse rounded bg-gray-200"></div>
-                <div class="h-20 animate-pulse rounded bg-gray-100"></div>
-                <p class="text-sm font-medium text-gray-600">
-                    Processing label image...
-                </p>
+            <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                    class="border-b border-blue-100 bg-blue-50/70 px-4 py-3"
+                >
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-blue-950">
+                                Processing label image
+                            </p>
+                            <p class="mt-0.5 text-xs font-medium text-blue-800">
+                                Extracting required fields and preparing the
+                                review table.
+                            </p>
+                        </div>
+                        <span
+                            class="inline-flex shrink-0 items-center gap-2 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-800"
+                        >
+                            <span
+                                class="h-2 w-2 animate-pulse rounded-full bg-blue-600"
+                                aria-hidden="true"
+                            ></span>
+                            In progress
+                        </span>
+                    </div>
+                    <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                        {#each ['Reading label', 'Extracting fields', 'Checking rules'] as step}
+                            <div
+                                class="rounded border border-blue-100 bg-white px-3 py-2"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <span
+                                        class="h-2 w-2 animate-pulse rounded-full bg-blue-500"
+                                        aria-hidden="true"
+                                    ></span>
+                                    <span
+                                        class="text-xs font-semibold text-gray-800"
+                                    >
+                                        {step}
+                                    </span>
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+                <div class="min-h-0 flex-1 overflow-hidden p-4">
+                    <div
+                        class="overflow-hidden rounded-md border border-gray-200"
+                    >
+                        <div
+                            class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase text-gray-500"
+                        >
+                            <span>Field</span>
+                            <span>Label</span>
+                            <span>Application</span>
+                            <span>Status</span>
+                        </div>
+                        <div class="divide-y divide-gray-100 bg-white">
+                            {#each Array(7) as _, index}
+                                <div
+                                    class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 px-3 py-3"
+                                >
+                                    <div
+                                        class="h-3 animate-pulse rounded bg-gray-200 {index %
+                                            3 ===
+                                        0
+                                            ? 'w-24'
+                                            : 'w-32'}"
+                                    ></div>
+                                    <div
+                                        class="h-3 animate-pulse rounded bg-gray-100 {index %
+                                            2 ===
+                                        0
+                                            ? 'w-36'
+                                            : 'w-48'}"
+                                    ></div>
+                                    <div
+                                        class="h-3 w-40 animate-pulse rounded bg-gray-100"
+                                    ></div>
+                                    <div
+                                        class="h-6 w-20 animate-pulse rounded-full bg-gray-100"
+                                    ></div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                </div>
             </div>
             <div
-                class="h-[190px] shrink-0 border-t bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600"
+                class="h-[190px] shrink-0 border-t bg-gray-50 px-4 py-3"
             >
-                Selected issue details will appear here.
+                <p class="text-xs font-bold uppercase text-gray-500">
+                    Selected Issue Details
+                </p>
+                <div class="mt-3 space-y-2">
+                    <div
+                        class="h-3 w-48 animate-pulse rounded bg-gray-200"
+                    ></div>
+                    <div
+                        class="h-3 w-3/4 animate-pulse rounded bg-gray-100"
+                    ></div>
+                    <div
+                        class="h-3 w-2/3 animate-pulse rounded bg-gray-100"
+                    ></div>
+                </div>
             </div>
         {:else if error}
             <div class="flex min-h-0 flex-1 flex-col justify-center p-5">

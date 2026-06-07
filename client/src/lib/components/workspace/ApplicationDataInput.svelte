@@ -1,28 +1,52 @@
 <script lang="ts">
     import { Button } from '$lib/components/ui/button'
     import { parseSmartPaste } from '$lib/utils/application-builder'
+    import {
+        CLASS_TYPE_OPTIONS,
+        BEVERAGE_FIELD_SETS,
+        REQUIREMENT_BADGE,
+    } from '$lib/utils/beverage-fields'
+    import type {
+        BeverageType,
+        BeverageFieldDef,
+        FieldRequirement,
+    } from '$lib/utils/beverage-fields'
 
     let {
         brandName = $bindable(''),
         producerName = $bindable(''),
-        beverageType = $bindable<'beer' | 'wine' | 'distilled_spirits' | ''>(
-            ''
-        ),
+        beverageType = $bindable<BeverageType>('distilled_spirits'),
         classType = $bindable(''),
         producerAddress = $bindable(''),
         countryOfOrigin = $bindable(''),
         alcoholContent = $bindable(''),
         netContents = $bindable(''),
+        appellation = $bindable(''),
+        ageStatement = $bindable(''),
+        colorDisclosures = $bindable(''),
+        commodityStatement = $bindable(''),
+        sulfiteDeclaration = $bindable(''),
+        foreignWinePct = $bindable(''),
+        colorAdditives = $bindable(''),
+        aspartameDeclaration = $bindable(''),
         loading = false,
     }: {
         brandName?: string
         producerName?: string
-        beverageType?: 'beer' | 'wine' | 'distilled_spirits' | ''
+        beverageType?: BeverageType
         classType?: string
         producerAddress?: string
         countryOfOrigin?: string
         alcoholContent?: string
         netContents?: string
+        appellation?: string
+        ageStatement?: string
+        colorDisclosures?: string
+        commodityStatement?: string
+        sulfiteDeclaration?: string
+        foreignWinePct?: string
+        colorAdditives?: string
+        aspartameDeclaration?: string
         loading?: boolean
     } = $props()
 
@@ -30,6 +54,117 @@
     let showPaste = $state(false)
     let parsedCount = $state(0)
     let parseError = $state(false)
+
+    // Reset classType when beverage type changes — options are mutually exclusive
+    let _prevType = $state<BeverageType>(beverageType)
+    $effect(() => {
+        if (beverageType !== _prevType) {
+            classType = ''
+            _prevType = beverageType
+        }
+    })
+
+    let classTypeOptions = $derived(CLASS_TYPE_OPTIONS[beverageType] ?? [])
+    let fieldSet = $derived(BEVERAGE_FIELD_SETS[beverageType] ?? [])
+
+    // Dynamic field value getter/setter — used for the generic {#each} rendering
+    function getVal(key: BeverageFieldDef['formKey']): string {
+        switch (key) {
+            case 'brandName':
+                return brandName
+            case 'classType':
+                return classType
+            case 'alcoholContent':
+                return alcoholContent
+            case 'netContents':
+                return netContents
+            case 'countryOfOrigin':
+                return countryOfOrigin
+            case 'appellation':
+                return appellation
+            case 'ageStatement':
+                return ageStatement
+            case 'colorDisclosures':
+                return colorDisclosures
+            case 'commodityStatement':
+                return commodityStatement
+            case 'sulfiteDeclaration':
+                return sulfiteDeclaration
+            case 'foreignWinePct':
+                return foreignWinePct
+            case 'colorAdditives':
+                return colorAdditives
+            case 'aspartameDeclaration':
+                return aspartameDeclaration
+            default:
+                return ''
+        }
+    }
+
+    function setVal(key: BeverageFieldDef['formKey'], val: string) {
+        switch (key) {
+            case 'brandName':
+                brandName = val
+                break
+            case 'classType':
+                classType = val
+                break
+            case 'alcoholContent':
+                alcoholContent = val
+                break
+            case 'netContents':
+                netContents = val
+                break
+            case 'countryOfOrigin':
+                countryOfOrigin = val
+                break
+            case 'appellation':
+                appellation = val
+                break
+            case 'ageStatement':
+                ageStatement = val
+                break
+            case 'colorDisclosures':
+                colorDisclosures = val
+                break
+            case 'commodityStatement':
+                commodityStatement = val
+                break
+            case 'sulfiteDeclaration':
+                sulfiteDeclaration = val
+                break
+            case 'foreignWinePct':
+                foreignWinePct = val
+                break
+            case 'colorAdditives':
+                colorAdditives = val
+                break
+            case 'aspartameDeclaration':
+                aspartameDeclaration = val
+                break
+        }
+    }
+
+    const PLACEHOLDERS: Partial<Record<BeverageFieldDef['formKey'], string>> = {
+        brandName: 'e.g. Old Tom Distillery',
+        alcoholContent: 'e.g. 45% Alc./Vol.',
+        netContents: 'e.g. 750 mL',
+        countryOfOrigin: 'Required for imports',
+        appellation: 'e.g. Napa Valley',
+        ageStatement: 'e.g. Aged 4 Years',
+        colorDisclosures: 'e.g. Artificially Colored',
+        commodityStatement: 'e.g. 100% Grain Neutral Spirits',
+        sulfiteDeclaration: 'e.g. Contains Sulfites',
+        foreignWinePct: 'e.g. 25% foreign wine',
+        colorAdditives: 'e.g. Colored with FD&C Red 40',
+        aspartameDeclaration: 'e.g. Contains Aspartame',
+    }
+
+    function requirementBadge(requirement: FieldRequirement) {
+        return requirement === 'required'
+            ? null
+            : REQUIREMENT_BADGE[requirement]
+    }
 
     function tryParse() {
         const r = parseSmartPaste(pasteText)
@@ -50,7 +185,7 @@
         if (r.countryOfOrigin && !countryOfOrigin)
             countryOfOrigin = r.countryOfOrigin
         if (r.beverageType && !beverageType)
-            beverageType = r.beverageType as typeof beverageType
+            beverageType = r.beverageType as BeverageType
         if (r.classType && !classType) classType = r.classType
         if (r.alcoholContent && !alcoholContent)
             alcoholContent = r.alcoholContent
@@ -86,11 +221,29 @@
             class="shrink-0 rounded text-xs font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             onclick={() => (showPaste = !showPaste)}
         >
-            {showPaste ? 'Hide paste helper' : 'Paste raw COLA text to auto-fill'}
+            {showPaste
+                ? 'Hide paste helper'
+                : 'Paste raw COLA text to auto-fill'}
         </button>
     </div>
 
     <div class="flex flex-col gap-3 p-4">
+        <!-- Beverage type — controls which fields and class/type options are shown -->
+        <label class="block">
+            <span
+                class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
+            >
+                <span>Beverage Type</span>
+                <span class="text-red-600" aria-hidden="true">*</span>
+                <span class="sr-only">Required</span>
+            </span>
+            <select bind:value={beverageType} class={inputCls}>
+                <option value="distilled_spirits">Distilled Spirits</option>
+                <option value="wine">Wine</option>
+                <option value="beer">Beer</option>
+            </select>
+        </label>
+
         {#if showPaste}
             <div
                 class="flex flex-col gap-2 rounded border border-blue-100 bg-blue-50/40 p-3"
@@ -129,96 +282,107 @@
             </div>
         {/if}
 
+        <!-- Dynamic field grid — driven by BEVERAGE_FIELD_SETS[beverageType] -->
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Brand Name</span
-                >
-                <input type="text" bind:value={brandName} class={inputCls} />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Class / Type</span
-                >
-                <input
-                    type="text"
-                    bind:value={classType}
-                    placeholder="e.g. Bourbon Whiskey"
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Alcohol Content</span
-                >
-                <input
-                    type="text"
-                    bind:value={alcoholContent}
-                    placeholder="e.g. 45% Alc./Vol."
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Net Contents</span
-                >
-                <input
-                    type="text"
-                    bind:value={netContents}
-                    placeholder="e.g. 750 mL"
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Producer Name</span
-                >
-                <input
-                    type="text"
-                    bind:value={producerName}
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Producer Address</span
-                >
-                <input
-                    type="text"
-                    bind:value={producerAddress}
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Country of Origin</span
-                >
-                <input
-                    type="text"
-                    bind:value={countryOfOrigin}
-                    placeholder="Required for imports"
-                    class={inputCls}
-                />
-            </label>
-            <label class="block">
-                <span
-                    class="mb-1 block text-xs font-bold uppercase text-gray-600"
-                    >Beverage Type</span
-                >
-                <select bind:value={beverageType} class={inputCls}>
-                    <option value="">Select type</option>
-                    <option value="beer">Beer</option>
-                    <option value="wine">Wine</option>
-                    <option value="distilled_spirits">Distilled Spirits</option>
-                </select>
-            </label>
+            {#each fieldSet as field (field.key)}
+                {#if field.formKey === 'health_warning'}
+                    <!-- Health warning is auto-verified against the statutory text — no user input -->
+                {:else if field.formKey === 'name_address'}
+                    <!-- Renders as two adjacent cells in the 2-col grid -->
+                    <label class="block">
+                        <span
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
+                        >
+                            <span>Bottler / Producer Name</span>
+                            <span class="text-red-600" aria-hidden="true"
+                                >*</span
+                            >
+                            <span class="sr-only">Required</span>
+                        </span>
+                        <input
+                            type="text"
+                            value={producerName}
+                            oninput={(e) =>
+                                (producerName = e.currentTarget.value)}
+                            placeholder="e.g. Old Tom Distillery LLC"
+                            class={inputCls}
+                        />
+                    </label>
+                    <label class="block">
+                        <span
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
+                        >
+                            <span>Bottler / Producer Address</span>
+                            <span class="text-red-600" aria-hidden="true"
+                                >*</span
+                            >
+                            <span class="sr-only">Required</span>
+                        </span>
+                        <input
+                            type="text"
+                            value={producerAddress}
+                            oninput={(e) =>
+                                (producerAddress = e.currentTarget.value)}
+                            placeholder="e.g. Louisville, KY 40201"
+                            class={inputCls}
+                        />
+                    </label>
+                {:else if field.formKey === 'classType'}
+                    <label class="block">
+                        <span
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
+                        >
+                            <span>{field.label}</span>
+                            {#if field.requirement === 'required'}
+                                <span class="text-red-600" aria-hidden="true"
+                                    >*</span
+                                >
+                                <span class="sr-only">Required</span>
+                            {:else}
+                                <!-- <span
+                                    class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-gray-600"
+                                >
+                                    {requirementBadge(field.requirement)}
+                                </span> -->
+                            {/if}
+                        </span>
+                        <select bind:value={classType} class={inputCls}>
+                            <option value="">Select class / type…</option>
+                            {#each classTypeOptions as opt}
+                                <option value={opt}>{opt}</option>
+                            {/each}
+                        </select>
+                    </label>
+                {:else}
+                    <label class="block">
+                        <span
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
+                        >
+                            <span>{field.label}</span>
+                            {#if field.requirement === 'required'}
+                                <span class="text-red-600" aria-hidden="true"
+                                    >*</span
+                                >
+                                <span class="sr-only">Required</span>
+                            {:else}
+                                <!-- <span
+                                    class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-semibold normal-case text-gray-600"
+                                >
+                                    {requirementBadge(field.requirement)}
+                                </span> -->
+                            {/if}
+                        </span>
+                        <input
+                            type="text"
+                            value={getVal(field.formKey)}
+                            oninput={(e) =>
+                                setVal(field.formKey, e.currentTarget.value)}
+                            placeholder={PLACEHOLDERS[field.formKey] ?? ''}
+                            class={inputCls}
+                        />
+                    </label>
+                {/if}
+            {/each}
         </div>
     </div>
 </div>

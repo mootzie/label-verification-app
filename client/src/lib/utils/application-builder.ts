@@ -113,6 +113,13 @@ export function buildOptionalApplicationData(data: {
     countryOfOrigin?: string
     appellation?: string
     vintageYear?: string
+    ageStatement?: string
+    colorDisclosures?: string
+    commodityStatement?: string
+    sulfiteDeclaration?: string
+    foreignWinePct?: string
+    colorAdditives?: string
+    aspartameDeclaration?: string
 }) {
     const entries = {
         brandName: data.brandName,
@@ -126,6 +133,13 @@ export function buildOptionalApplicationData(data: {
         countryOfOrigin: data.countryOfOrigin,
         appellation: data.appellation,
         vintageYear: data.vintageYear,
+        ageStatement: data.ageStatement,
+        colorDisclosures: data.colorDisclosures,
+        commodityStatement: data.commodityStatement,
+        sulfiteDeclaration: data.sulfiteDeclaration,
+        foreignWinePct: data.foreignWinePct,
+        colorAdditives: data.colorAdditives,
+        aspartameDeclaration: data.aspartameDeclaration,
     }
 
     return Object.fromEntries(

@@ -29,8 +29,15 @@ export interface LabelApplication {
   producerName: string;
   producerAddress: string;
   countryOfOrigin?: string;
-  appellation?: string; // wine only
-  vintageYear?: string; // wine only
+  appellation?: string;
+  vintageYear?: string;
+  ageStatement?: string;
+  colorDisclosures?: string;
+  commodityStatement?: string;
+  sulfiteDeclaration?: string;
+  foreignWinePct?: string;
+  colorAdditives?: string;
+  aspartameDeclaration?: string;
   // governmentWarning is not user-supplied — verifier compares against GOVERNMENT_WARNING constant
 }
 

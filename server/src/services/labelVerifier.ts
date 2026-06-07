@@ -66,7 +66,102 @@ const FIELD_NAME_MAP: Record<string, string> = {
   producer_address: "producerAddress",
   country_of_origin: "countryOfOrigin",
   government_warning: "governmentWarning",
+  age_statement: "ageStatement",
+  color_disclosures: "colorDisclosures",
+  commodity_statement: "commodityStatement",
+  sulfite_declaration: "sulfiteDeclaration",
+  appellation: "appellation",
+  foreign_wine_pct: "foreignWinePct",
+  color_additives: "colorAdditives",
+  aspartame_declaration: "aspartameDeclaration",
 };
+
+const FIELD_LIST_BY_TYPE: Record<string, string[]> = {
+  distilled_spirits: [
+    "brand_name",
+    "class_type",
+    "alcohol_content",
+    "net_contents",
+    "producer_name",
+    "producer_address",
+    "government_warning",
+    "age_statement",
+    "color_disclosures",
+    "commodity_statement",
+    "country_of_origin",
+  ],
+  wine: [
+    "brand_name",
+    "class_type",
+    "alcohol_content",
+    "net_contents",
+    "producer_name",
+    "producer_address",
+    "government_warning",
+    "sulfite_declaration",
+    "appellation",
+    "foreign_wine_pct",
+    "color_disclosures",
+    "country_of_origin",
+  ],
+  beer: [
+    "brand_name",
+    "class_type",
+    "net_contents",
+    "producer_name",
+    "producer_address",
+    "government_warning",
+    "alcohol_content",
+    "color_additives",
+    "sulfite_declaration",
+    "aspartame_declaration",
+    "country_of_origin",
+  ],
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  brand_name: "Brand Name",
+  class_type: "Class / Type",
+  alcohol_content: "Alcohol Content",
+  net_contents: "Net Contents",
+  producer_name: "Producer Name",
+  producer_address: "Producer Address",
+  country_of_origin: "Country of Origin",
+  age_statement: "Age Statement",
+  color_disclosures: "Color Disclosures",
+  commodity_statement: "Commodity Statement",
+  sulfite_declaration: "Sulfite Declaration",
+  appellation: "Appellation",
+  foreign_wine_pct: "Foreign Wine %",
+  color_additives: "Color Additives",
+  aspartame_declaration: "Aspartame Declaration",
+};
+
+function getAppValue(
+  application: LabelApplicationInput,
+  fieldKey: string,
+): string {
+  const map: Record<string, keyof LabelApplicationInput> = {
+    brand_name: "brandName",
+    class_type: "classType",
+    alcohol_content: "alcoholContent",
+    net_contents: "netContents",
+    producer_name: "producerName",
+    producer_address: "producerAddress",
+    country_of_origin: "countryOfOrigin",
+    age_statement: "ageStatement",
+    color_disclosures: "colorDisclosures",
+    commodity_statement: "commodityStatement",
+    sulfite_declaration: "sulfiteDeclaration",
+    appellation: "appellation",
+    foreign_wine_pct: "foreignWinePct",
+    color_additives: "colorAdditives",
+    aspartame_declaration: "aspartameDeclaration",
+  };
+  const key = map[fieldKey];
+  if (!key) return "Not provided";
+  return (application[key] as string | undefined) || "Not provided";
+}
 
 // ---------------------------------------------------------------------------
 // Programmatic government warning validation
@@ -200,24 +295,42 @@ const SYSTEM_PROMPT_STRICT =
 // ---------------------------------------------------------------------------
 
 function buildUserMessage(application: LabelApplicationInput): string {
+  const bev = application.beverageType ?? "distilled_spirits";
+  const fieldList =
+    FIELD_LIST_BY_TYPE[bev] ?? FIELD_LIST_BY_TYPE["distilled_spirits"];
   const hasAppData = Object.keys(application).length > 0;
+
+  const appLines = fieldList
+    .filter((k) => k !== "government_warning")
+    .map((k) => `  ${FIELD_LABEL[k] ?? k}: ${getAppValue(application, k)}`)
+    .join("\n");
+
+  const appBlock = hasAppData
+    ? `APPLICATION DATA (COLA filing):
+Compare your extracted values against these application-provided values:
+${appLines}
+`
+    : "No application data provided. Extract fields only.";
+
+  const fieldLines = fieldList
+    .map((k, i) => {
+      const suffix =
+        k === "government_warning"
+          ? " ← extract verbatim only, no compliance judgment"
+          : "";
+      return `${i + 1}. ${k}${suffix}`;
+    })
+    .join("\n");
 
   return `Analyze this alcohol beverage label image and extract all visible fields.
 
-${
-  hasAppData
-    ? `APPLICATION DATA (COLA filing):
-Compare your extracted values against these application-provided values:
-  Brand Name:        ${application.brandName || "Not provided"}
-  Class / Type:      ${application.classType || "Not provided"}
-  Alcohol Content:   ${application.alcoholContent || "Not provided"}
-  Net Contents:      ${application.netContents || "Not provided"}
-  Producer Name:     ${application.producerName || "Not provided"}
-  Producer Address:  ${application.producerAddress || "Not provided"}
-  Country of Origin: ${application.countryOfOrigin || "Not provided"}
-`
-    : "No application data provided. Extract fields only."
-}
+${appBlock}
+
+Beverage type: ${bev}
+
+Verify fields according to TTB requirements for this beverage type.
+Required fields for this type that are absent from the label should be flagged as fail.
+Fields marked 'if applicable' or 'imports only' that are absent should be flagged as extracted (not a failure).
 
 Return this exact JSON structure — no other text:
 
@@ -237,14 +350,7 @@ Return this exact JSON structure — no other text:
 }
 
 Extract these fields in order:
-1. brand_name
-2. class_type
-3. alcohol_content
-4. net_contents
-5. producer_name
-6. producer_address
-7. country_of_origin
-8. government_warning  ← extract verbatim only, no compliance judgment
+${fieldLines}
 
 STATUS RULES (only apply when application data is provided for that field):
 - pass:      extracted matches application value (semantically equivalent)

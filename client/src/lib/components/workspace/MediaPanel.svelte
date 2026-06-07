@@ -6,7 +6,6 @@
         CardTitle,
     } from '$lib/components/ui/card'
     import { FileTextIcon, UploadIcon } from '$lib/components/ui/icon'
-    import { formatFieldName } from '$lib/utils/compliance-logic'
 
     let {
         files,
@@ -17,7 +16,7 @@
         workstation = false,
         blankState = false,
         hideFileInput = false,
-        hoverScale = 2.5,
+        hoverScale = 1.75,
         onFileInput,
         onSelectFile,
         onRemoveFile,
@@ -41,13 +40,43 @@
     } = $props()
 
     let isHovering = $state(false)
-    let zoomOrigin = $state('50% 50%')
+    let zoomEnabled = $state(true)
+    let zoomLevel = $state(2.5)
+    let previewSurface = $state<HTMLDivElement | null>(null)
+    let zoomInitialized = false
+    let pointerFrame = 0
+    let nextOrigin = '50% 50%'
 
-    function handleMouseMove(e: MouseEvent) {
+    let zoomPercent = $derived(Math.round(zoomLevel * 100))
+    let activeScale = $derived(isHovering && zoomEnabled ? zoomLevel : 1)
+
+    $effect(() => {
+        if (zoomInitialized) return
+        zoomLevel = hoverScale
+        zoomInitialized = true
+    })
+
+    function handlePointerMove(e: PointerEvent) {
+        if (!zoomEnabled || !previewSurface) return
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
         const x = ((e.clientX - rect.left) / rect.width) * 100
         const y = ((e.clientY - rect.top) / rect.height) * 100
-        zoomOrigin = `${x}% ${y}%`
+        nextOrigin = `${x}% ${y}%`
+        if (pointerFrame) return
+        pointerFrame = requestAnimationFrame(() => {
+            previewSurface?.style.setProperty('--zoom-origin', nextOrigin)
+            pointerFrame = 0
+        })
+    }
+
+    function handlePointerLeave() {
+        isHovering = false
+        nextOrigin = '50% 50%'
+        previewSurface?.style.setProperty('--zoom-origin', nextOrigin)
+    }
+
+    function setZoom(next: number) {
+        zoomLevel = Math.min(4, Math.max(1.25, Number(next.toFixed(2))))
     }
 </script>
 
@@ -61,49 +90,37 @@
                 : 'py-4'} border-b border-gray-200 bg-white"
         >
             <div class="flex items-center justify-between gap-3 w-full">
-                <div class="min-w-0 w-full">
+                <div class="min-w-0">
                     <CardTitle
-                        class="w-full {workstation
+                        class="{workstation
                             ? 'text-sm'
                             : 'text-base'} font-bold text-gray-950"
                     >
-                        <div
-                            class="flex justify-between items-center gap-2 w-full"
-                        >
-                            <span class="inline-flex items-center gap-2">
-                                <FileTextIcon
-                                    size={32}
-                                    className={blankState
-                                        ? 'text-blue-700'
-                                        : 'text-gray-500'}
-                                />
-                                {#if blankState}
-                                    <!-- <span class="font-bold text-blue-700"
-                                        >Step 1</span
-                                    >
-                                    <span
-                                        class="h-1 w-1 rounded-full bg-blue-700"
-                                        aria-hidden="true"
-                                    ></span> -->
-                                    Add Label Image
-                                {:else if files.length > 0 && selectedFileIndex !== null}
-                                    <p
-                                        class="truncate text-[11px] font-medium text-gray-500"
-                                    >
-                                        {files[selectedFileIndex]?.name}
-                                    </p>
-                                {/if}
-                            </span>
-                            <!-- {#if blankState}
-                                <span
-                                    class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
-                                >
-                                    Start here
-                                </span>
-                            {/if} -->
-                        </div>
+                        {blankState ? 'Add Label Image' : 'Label Image'}
                     </CardTitle>
+                    <p class="mt-1 truncate text-xs font-medium text-gray-500">
+                        {files.length > 1
+                            ? `${files.length} labels`
+                            : imagePreviewUrl
+                              ? 'Single label'
+                              : 'Upload a label image'}
+                    </p>
                 </div>
+                {#if imagePreviewUrl}
+                    <button
+                        type="button"
+                        class="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                        onclick={() =>
+                            document.getElementById('file-input-el')?.click()}
+                    >
+                        Change files
+                    </button>
+                {:else if blankState}
+                    <FileTextIcon
+                        size={28}
+                        className="shrink-0 text-blue-700"
+                    />
+                {/if}
                 <!-- {#if selectedFieldName}
                     <span
                         class="max-w-[45%] truncate rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800"
@@ -135,12 +152,40 @@
                     {#if imagePreviewUrl}
                         <button
                             type="button"
-                            class="rounded border border-gray-300 bg-white px-2 py-1 font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                            onclick={() =>
-                                document
-                                    .getElementById('file-input-el')
-                                    ?.click()}>Change files</button
+                            class="h-7 rounded border px-2.5 text-xs font-semibold transition-colors {zoomEnabled
+                                ? 'border-gray-300 bg-white text-gray-800 shadow-sm'
+                                : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-white'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                            aria-pressed={zoomEnabled}
+                            onclick={() => (zoomEnabled = !zoomEnabled)}
                         >
+                            Inspect {zoomEnabled ? 'on' : 'off'}
+                        </button>
+                        <div
+                            class="flex h-7 items-center overflow-hidden rounded border border-gray-300 bg-white shadow-sm"
+                            aria-label="Inspect zoom controls"
+                        >
+                            <button
+                                type="button"
+                                class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                aria-label="Decrease inspect zoom"
+                                onclick={() => setZoom(zoomLevel - 0.25)}
+                            >
+                                -
+                            </button>
+                            <span
+                                class="min-w-12 border-x border-gray-200 px-2 text-center text-xs font-semibold text-gray-700"
+                            >
+                                {zoomPercent}%
+                            </span>
+                            <button
+                                type="button"
+                                class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                aria-label="Increase inspect zoom"
+                                onclick={() => setZoom(zoomLevel + 0.25)}
+                            >
+                                +
+                            </button>
+                        </div>
                     {/if}
                 </div>
             </div>
@@ -158,23 +203,24 @@
             {#if imagePreviewUrl}
                 <div class="flex min-h-0 flex-1 flex-col gap-2">
                     <div
-                        class="relative min-h-0 flex-1 w-full overflow-hidden rounded border border-gray-500 bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] cursor-crosshair shadow-inner"
+                        class="relative min-h-0 flex-1 w-full overflow-hidden rounded border border-gray-300 bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] cursor-default shadow-inner"
                         role="region"
-                        aria-label="Label image preview"
-                        onmouseenter={() => (isHovering = true)}
-                        onmouseleave={() => (isHovering = false)}
-                        onmousemove={handleMouseMove}
+                        aria-label="Label image preview. Inspect on hover can be toggled in the viewer toolbar."
+                        onpointerenter={() => (isHovering = true)}
+                        onpointerleave={handlePointerLeave}
+                        onpointermove={handlePointerMove}
                     >
                         <div
-                            class="absolute left-1/2 top-1/2 origin-center transition-transform duration-200 ease-out"
-                            style="transform: translate(-50%, -50%) scale({isHovering
-                                ? hoverScale
-                                : 1}); transform-origin: {zoomOrigin}; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"
+                            bind:this={previewSurface}
+                            class="absolute left-1/2 top-1/2 origin-center will-change-transform transition-transform {zoomEnabled
+                                ? 'duration-150'
+                                : 'duration-200'} ease-out [--zoom-origin:50%_50%]"
+                            style="transform: translate(-50%, -50%) scale({activeScale}); transform-origin: var(--zoom-origin); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; contain: paint;"
                         >
                             <img
                                 src={imagePreviewUrl}
                                 alt="Preview"
-                                style="display: block; max-width: 100%; max-height: 100%; object-fit: contain;"
+                                style="display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none;"
                                 draggable="false"
                             />
                         </div>
@@ -267,7 +313,9 @@
                             >
                         {/if}
                         <span class="text-xs font-medium text-gray-500">
-                            Hover image to inspect
+                            {zoomEnabled
+                                ? 'Hover to inspect; adjust zoom above.'
+                                : 'Inspect is off'}
                         </span>
                     </div>
                 </div>
@@ -295,7 +343,7 @@
                             Browse Files
                         </span>
                         <p class="mt-2 text-sm text-gray-600">
-                            or drag and drop label images here
+                            or drag and drop label images anywhere on the screen
                         </p>
                         <p class="mt-2 text-xs text-gray-500 tracking-wider">
                             JPEG, PNG, WebP supported
