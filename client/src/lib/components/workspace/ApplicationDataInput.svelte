@@ -221,17 +221,18 @@
 
     const inputCls =
         'w-full rounded border border-gray-300 bg-white px-2.5 h-9 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors'
+
+    let textarea: HTMLTextAreaElement
+    import { tick } from 'svelte'
 </script>
 
 <div class="flex flex-col rounded-md border border-gray-200 bg-white shadow-sm">
     <div
-        class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3"
-    >
+        class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div>
             <h3
                 id="application-data-title"
-                class="text-sm font-semibold text-gray-950"
-            >
+                class="text-sm font-semibold text-gray-950">
                 Application Data (COLA)
             </h3>
             <p class="mt-0.5 text-xs text-gray-500">
@@ -241,8 +242,11 @@
         <button
             type="button"
             class="shrink-0 rounded text-xs font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-            onclick={() => (showPaste = !showPaste)}
-        >
+            onclick={async () => {
+                showPaste = !showPaste
+                await tick()
+                textarea.focus()
+            }}>
             {showPaste
                 ? 'Hide paste helper'
                 : 'Paste raw COLA text to auto-fill'}
@@ -253,8 +257,7 @@
         <!-- Beverage type — controls which fields and class/type options are shown -->
         <label class="block">
             <span
-                class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
-            >
+                class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                 <span>Beverage Type</span>
                 <span class="text-red-600" aria-hidden="true">*</span>
                 <span class="sr-only">Required</span>
@@ -268,27 +271,26 @@
 
         {#if showPaste}
             <div
-                class="flex flex-col gap-2 rounded border border-blue-100 bg-blue-50/40 p-3"
-            >
+                class="flex flex-col gap-2 rounded border border-blue-100 bg-blue-50/40 p-3">
                 <p class="text-xs text-gray-600">
                     Paste raw COLA application text below. Fields will be
                     auto-filled without overwriting values you've already
                     entered.
                 </p>
                 <textarea
+                    bind:this={textarea}
                     id="application-paste"
                     aria-label="Paste application text"
                     class="min-h-20 w-full resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                     placeholder="Paste application text: brand name, producer, ABV, class/type, address..."
                     bind:value={pasteText}
-                    onkeydown={handleKeydown}
-                ></textarea>
+                    onkeydown={handleKeydown}>
+                </textarea>
                 <Button
                     variant="outline"
                     disabled={!pasteText.trim() || loading}
                     onclick={tryParse}
-                    class="h-9 w-full bg-blue-900 px-5 text-white hover:bg-blue-800"
-                >
+                    class="h-9 w-full bg-blue-900 px-5 text-white hover:bg-blue-800">
                     Auto-fill fields
                 </Button>
                 {#if parseError}
@@ -313,12 +315,11 @@
                     <!-- Renders as two adjacent cells in the 2-col grid -->
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
-                        >
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                             <span>Bottler / Producer Name</span>
-                            <span class="text-red-600" aria-hidden="true"
-                                >*</span
-                            >
+                            <span class="text-red-600" aria-hidden="true">
+                                *
+                            </span>
                             <span class="sr-only">Required</span>
                         </span>
                         <input
@@ -327,17 +328,15 @@
                             oninput={(e) =>
                                 (producerName = e.currentTarget.value)}
                             placeholder="e.g. Old Tom Distillery LLC"
-                            class={inputCls}
-                        />
+                            class={inputCls} />
                     </label>
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
-                        >
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                             <span>Bottler / Producer Address</span>
-                            <span class="text-red-600" aria-hidden="true"
-                                >*</span
-                            >
+                            <span class="text-red-600" aria-hidden="true">
+                                *
+                            </span>
                             <span class="sr-only">Required</span>
                         </span>
                         <input
@@ -346,19 +345,17 @@
                             oninput={(e) =>
                                 (producerAddress = e.currentTarget.value)}
                             placeholder="e.g. Louisville, KY 40201"
-                            class={inputCls}
-                        />
+                            class={inputCls} />
                     </label>
                 {:else if field.formKey === 'classType'}
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
-                        >
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                             <span>{field.label}</span>
                             {#if field.requirement === 'required'}
-                                <span class="text-red-600" aria-hidden="true"
-                                    >*</span
-                                >
+                                <span class="text-red-600" aria-hidden="true">
+                                    *
+                                </span>
                                 <span class="sr-only">Required</span>
                             {:else}
                                 <!-- <span
@@ -378,13 +375,12 @@
                 {:else}
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600"
-                        >
+                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
                             <span>{field.label}</span>
                             {#if field.requirement === 'required'}
-                                <span class="text-red-600" aria-hidden="true"
-                                    >*</span
-                                >
+                                <span class="text-red-600" aria-hidden="true">
+                                    *
+                                </span>
                                 <span class="sr-only">Required</span>
                             {:else}
                                 <!-- <span
@@ -400,8 +396,7 @@
                             oninput={(e) =>
                                 setVal(field.formKey, e.currentTarget.value)}
                             placeholder={PLACEHOLDERS[field.formKey] ?? ''}
-                            class={inputCls}
-                        />
+                            class={inputCls} />
                     </label>
                 {/if}
             {/each}

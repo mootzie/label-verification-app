@@ -38,7 +38,6 @@ export const STATUS_BORDER: Record<string, string> = {
     not_found: 'border-gray-400 focus:border-blue-500 focus:ring-blue-500',
 }
 
-
 export function borderCls(
     fieldResultMap: Map<string, FieldResult>,
     fieldName: string

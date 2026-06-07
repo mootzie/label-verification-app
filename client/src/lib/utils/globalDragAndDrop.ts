@@ -4,12 +4,25 @@ export function setupGlobalDragAndDrop(
 ): () => void {
     let counter = 0
     const enter = (e: DragEvent) => {
-        if (e.dataTransfer?.types.includes('Files')) { counter++; onActiveChange(true) }
+        if (e.dataTransfer?.types.includes('Files')) {
+            counter++
+            onActiveChange(true)
+        }
     }
-    const leave = () => { counter--; if (counter <= 0) { counter = 0; onActiveChange(false) } }
-    const over = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault() }
+    const leave = () => {
+        counter--
+        if (counter <= 0) {
+            counter = 0
+            onActiveChange(false)
+        }
+    }
+    const over = (e: DragEvent) => {
+        if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
+    }
     const drop = (e: DragEvent) => {
-        e.preventDefault(); counter = 0; onActiveChange(false)
+        e.preventDefault()
+        counter = 0
+        onActiveChange(false)
         if (e.dataTransfer?.files) onFiles(e.dataTransfer.files)
     }
     window.addEventListener('dragenter', enter)

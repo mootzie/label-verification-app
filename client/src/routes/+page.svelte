@@ -105,6 +105,8 @@
         jobId = null
         labels = []
         jobDone = false
+
+        // focus the submit button after file selection so users can hit Enter to submit without
     }
 
     function selectFile(index: number) {
@@ -690,10 +692,10 @@
                     >
                         <div class="border-b border-gray-200 px-4 py-3">
                             <h3 class="text-sm font-semibold text-gray-950">
-                                Label Image
+                                Label Images
                             </h3>
                             <p class="mt-0.5 text-xs text-gray-500">
-                                Upload the label image to extract and verify
+                                Upload the label images to extract and verify
                                 fields.
                             </p>
                         </div>

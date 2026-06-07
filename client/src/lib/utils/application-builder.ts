@@ -5,18 +5,27 @@ export function parseSmartPaste(text: string) {
     if (trimmed.startsWith('{')) {
         try {
             const obj = JSON.parse(trimmed)
-            if (typeof obj === 'object' && obj !== null) return parseFromObject(obj)
-        } catch { /* fall through */ }
+            if (typeof obj === 'object' && obj !== null)
+                return parseFromObject(obj)
+        } catch {
+            /* fall through */
+        }
     }
 
     // JSON array — use first element
     if (trimmed.startsWith('[')) {
         try {
             const arr = JSON.parse(trimmed)
-            if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'object') {
+            if (
+                Array.isArray(arr) &&
+                arr.length > 0 &&
+                typeof arr[0] === 'object'
+            ) {
                 return parseFromObject(arr[0])
             }
-        } catch { /* fall through */ }
+        } catch {
+            /* fall through */
+        }
     }
 
     // SQL INSERT INTO table (col1, col2) VALUES (val1, val2)
@@ -24,12 +33,16 @@ export function parseSmartPaste(text: string) {
         /INSERT\s+INTO\s+\S+\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i
     )
     if (sqlMatch) {
-        const cols = sqlMatch[1].split(',').map((s) => s.trim().replace(/[`'"[\]]/g, ''))
+        const cols = sqlMatch[1]
+            .split(',')
+            .map((s) => s.trim().replace(/[`'"[\]]/g, ''))
         const vals = sqlMatch[2]
             .split(',')
             .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
         const obj: Record<string, string> = {}
-        cols.forEach((c, i) => { obj[c] = vals[i] ?? '' })
+        cols.forEach((c, i) => {
+            obj[c] = vals[i] ?? ''
+        })
         return parseFromObject(obj)
     }
 
@@ -48,25 +61,84 @@ function parseFromObject(obj: Record<string, unknown>) {
     }
 
     const brandName = pick('brandName', 'brand_name', 'brand', 'name')
-    const producerName = pick('producerName', 'producer_name', 'producer', 'bottler', 'bottlerName')
-    const producerAddress = pick('producerAddress', 'producer_address', 'address', 'bottlerAddress')
-    const countryOfOrigin = pick('countryOfOrigin', 'country_of_origin', 'country', 'origin')
-    const alcoholContent = pick('alcoholContent', 'alcohol_content', 'alcohol', 'abv', 'alc')
-    const netContents = pick('netContents', 'net_contents', 'netContent', 'volume', 'size')
+    const producerName = pick(
+        'producerName',
+        'producer_name',
+        'producer',
+        'bottler',
+        'bottlerName'
+    )
+    const producerAddress = pick(
+        'producerAddress',
+        'producer_address',
+        'address',
+        'bottlerAddress'
+    )
+    const countryOfOrigin = pick(
+        'countryOfOrigin',
+        'country_of_origin',
+        'country',
+        'origin'
+    )
+    const alcoholContent = pick(
+        'alcoholContent',
+        'alcohol_content',
+        'alcohol',
+        'abv',
+        'alc'
+    )
+    const netContents = pick(
+        'netContents',
+        'net_contents',
+        'netContent',
+        'volume',
+        'size'
+    )
     const vintageYear = pick('vintageYear', 'vintage_year', 'vintage', 'year')
-    const classType = pick('classType', 'class_type', 'class', 'type', 'style', 'variety')
+    const classType = pick(
+        'classType',
+        'class_type',
+        'class',
+        'type',
+        'style',
+        'variety'
+    )
     const appellation = pick('appellation')
     const ageStatement = pick('ageStatement', 'age_statement', 'age')
-    const colorDisclosures = pick('colorDisclosures', 'color_disclosures', 'color')
-    const commodityStatement = pick('commodityStatement', 'commodity_statement', 'commodity')
-    const sulfiteDeclaration = pick('sulfiteDeclaration', 'sulfite_declaration', 'sulfites')
-    const foreignWinePct = pick('foreignWinePct', 'foreign_wine_pct', 'foreignWine')
+    const colorDisclosures = pick(
+        'colorDisclosures',
+        'color_disclosures',
+        'color'
+    )
+    const commodityStatement = pick(
+        'commodityStatement',
+        'commodity_statement',
+        'commodity'
+    )
+    const sulfiteDeclaration = pick(
+        'sulfiteDeclaration',
+        'sulfite_declaration',
+        'sulfites'
+    )
+    const foreignWinePct = pick(
+        'foreignWinePct',
+        'foreign_wine_pct',
+        'foreignWine'
+    )
     const colorAdditives = pick('colorAdditives', 'color_additives')
-    const aspartameDeclaration = pick('aspartameDeclaration', 'aspartame_declaration', 'aspartame')
+    const aspartameDeclaration = pick(
+        'aspartameDeclaration',
+        'aspartame_declaration',
+        'aspartame'
+    )
 
     // beverageType detection: try explicit field first, then infer from classType/other fields
-    let beverageType: string | null = pick('beverageType', 'beverage_type', 'type') ?? null
-    if (beverageType && !['beer', 'wine', 'distilled_spirits'].includes(beverageType)) {
+    let beverageType: string | null =
+        pick('beverageType', 'beverage_type', 'type') ?? null
+    if (
+        beverageType &&
+        !['beer', 'wine', 'distilled_spirits'].includes(beverageType)
+    ) {
         beverageType = inferBeverageType(beverageType + ' ' + (classType ?? ''))
     }
     if (!beverageType) {
@@ -98,21 +170,33 @@ function parseFromObject(obj: Record<string, unknown>) {
 
 function inferBeverageType(text: string): string | null {
     if (
-        /\b(whiskey|whisky|vodka|rum\b|gin\b|tequila|bourbon|brandy|mezcal|cognac|distilled\s+spirits?)\b/i.test(text)
-    ) return 'distilled_spirits'
+        /\b(whiskey|whisky|vodka|rum\b|gin\b|tequila|bourbon|brandy|mezcal|cognac|distilled\s+spirits?)\b/i.test(
+            text
+        )
+    )
+        return 'distilled_spirits'
     if (
-        /\b(wine|champagne|chardonnay|cabernet|merlot|pinot|riesling|sauvignon|mead|prosecco|bordeaux|burgundy|chablis|shiraz|viognier)\b/i.test(text)
-    ) return 'wine'
+        /\b(wine|champagne|chardonnay|cabernet|merlot|pinot|riesling|sauvignon|mead|prosecco|bordeaux|burgundy|chablis|shiraz|viognier)\b/i.test(
+            text
+        )
+    )
+        return 'wine'
     if (
-        /\b(beer|ale\b|lager|stout|porter\b|ipa\b|pilsner|saison|bock\b|weizen|hefeweizen|pale\s+ale|wheat\s+beer)\b/i.test(text)
-    ) return 'beer'
+        /\b(beer|ale\b|lager|stout|porter\b|ipa\b|pilsner|saison|bock\b|weizen|hefeweizen|pale\s+ale|wheat\s+beer)\b/i.test(
+            text
+        )
+    )
+        return 'beer'
     return null
 }
 
 function parsePlainText(text: string) {
     // normalize tabs to newlines so tab-separated spreadsheet rows parse like multi-line blocks
     const normalized = text.replace(/\t/g, '\n')
-    const lines = normalized.split('\n').map((l) => l.trim()).filter(Boolean)
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
 
     // alcoholContent: "12.5% alc/vol", "40% ABV", "5.6% alcohol", "40% ALCOHOL BY VOLUME", "5.4% ALC. BY VOL."
     const alcMatch = normalized.match(
@@ -121,7 +205,9 @@ function parsePlainText(text: string) {
     const alcoholContent = alcMatch ? alcMatch[0].trim() : null
 
     // netContents: "750mL", "1L", "12 fl. oz.", "355 ml"
-    const netMatch = normalized.match(/\b(\d+\.?\d*)\s*(mL|L\b|oz\.?|fl\.?\s*oz\.?)/i)
+    const netMatch = normalized.match(
+        /\b(\d+\.?\d*)\s*(mL|L\b|oz\.?|fl\.?\s*oz\.?)/i
+    )
     const netContents = netMatch ? netMatch[0].trim() : null
 
     // vintageYear: 4-digit year 1900–2099
@@ -141,15 +227,24 @@ function parsePlainText(text: string) {
     let producerAddress: string | null = null
     if (producerMatch) {
         const producerLineIdx = lines.findIndex((l) =>
-            /(?:Produced|Brewed|Bottled|Distilled|Manufactured|Imported|Packed|MFD|MFG)\s+(?:by|for)/i.test(l)
+            /(?:Produced|Brewed|Bottled|Distilled|Manufactured|Imported|Packed|MFD|MFG)\s+(?:by|for)/i.test(
+                l
+            )
         )
         const next = lines[producerLineIdx + 1] ?? null
-        if (next && !/(?:product\s+of|made\s+in|imported\s+from|%|mL|L\b|oz|\d{4})/i.test(next)) {
+        if (
+            next &&
+            !/(?:product\s+of|made\s+in|imported\s+from|%|mL|L\b|oz|\d{4})/i.test(
+                next
+            )
+        ) {
             producerAddress = next
         }
     }
     if (!producerAddress) {
-        const addrMatch = normalized.match(/\b[A-Za-z][A-Za-z\s]+,\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/)
+        const addrMatch = normalized.match(
+            /\b[A-Za-z][A-Za-z\s]+,\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/
+        )
         if (addrMatch) producerAddress = addrMatch[0].trim()
     }
 
@@ -166,7 +261,9 @@ function parsePlainText(text: string) {
 
     // classType: explicit "Class/Type/Style/Variety: ..." label, or second line if plain descriptor
     let classType: string | null = null
-    const classLabelMatch = normalized.match(/(?:Class|Type|Style|Variety)[:\s]+(.+)/i)
+    const classLabelMatch = normalized.match(
+        /(?:Class|Type|Style|Variety)[:\s]+(.+)/i
+    )
     if (classLabelMatch) {
         classType = classLabelMatch[1].trim().slice(0, 80)
     } else if (lines.length >= 2) {

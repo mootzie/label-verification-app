@@ -286,7 +286,6 @@ const SYSTEM_PROMPT_STRICT =
   SYSTEM_PROMPT +
   "\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.";
 
-
 function buildUserMessage(application: LabelApplicationInput): string {
   const bev = application.beverageType ?? "distilled_spirits";
   const fieldList =

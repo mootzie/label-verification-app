@@ -1,6 +1,7 @@
 import type { BatchLabelItem, VerificationResult } from '$shared/index'
 
-const MOCK_IMAGE_URL = 'https://placehold.co/600x800/f3f4f6/1d4ed8?text=Mock+Label'
+const MOCK_IMAGE_URL =
+    'https://placehold.co/600x800/f3f4f6/1d4ed8?text=Mock+Label'
 
 // ── Application data snapshots ────────────────────────────────────────────────
 
@@ -60,14 +61,62 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
             overallStatus: 'pass',
             processingTimeMs: 1890,
             fields: [
-                { fieldName: 'brandName', expectedValue: 'Old Tom Distillery', foundValue: 'Old Tom Distillery', status: 'pass', notes: '' },
-                { fieldName: 'classType', expectedValue: 'Kentucky Straight Bourbon Whisky', foundValue: 'Kentucky Straight Bourbon Whisky', status: 'pass', notes: '' },
-                { fieldName: 'alcoholContent', expectedValue: '45% Alc./Vol.', foundValue: '45% Alc./Vol. (90 Proof)', status: 'pass', notes: 'Proof annotation is informational only.' },
-                { fieldName: 'netContents', expectedValue: '750 mL', foundValue: '750 mL', status: 'pass', notes: '' },
-                { fieldName: 'producerName', expectedValue: 'Old Tom Distillery LLC', foundValue: 'Old Tom Distillery LLC', status: 'pass', notes: '' },
-                { fieldName: 'producerAddress', expectedValue: 'Louisville, KY 40201', foundValue: 'Louisville, KY 40201', status: 'pass', notes: '' },
-                { fieldName: 'ageStatement', expectedValue: 'Aged 4 Years', foundValue: 'Aged 4 Years', status: 'pass', notes: '' },
-                { fieldName: 'governmentWarning', expectedValue: GW_FULL, foundValue: GW_FULL, status: 'pass', notes: 'Header and statutory text verified (100% word match).' },
+                {
+                    fieldName: 'brandName',
+                    expectedValue: 'Old Tom Distillery',
+                    foundValue: 'Old Tom Distillery',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'classType',
+                    expectedValue: 'Kentucky Straight Bourbon Whisky',
+                    foundValue: 'Kentucky Straight Bourbon Whisky',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'alcoholContent',
+                    expectedValue: '45% Alc./Vol.',
+                    foundValue: '45% Alc./Vol. (90 Proof)',
+                    status: 'pass',
+                    notes: 'Proof annotation is informational only.',
+                },
+                {
+                    fieldName: 'netContents',
+                    expectedValue: '750 mL',
+                    foundValue: '750 mL',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerName',
+                    expectedValue: 'Old Tom Distillery LLC',
+                    foundValue: 'Old Tom Distillery LLC',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerAddress',
+                    expectedValue: 'Louisville, KY 40201',
+                    foundValue: 'Louisville, KY 40201',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'ageStatement',
+                    expectedValue: 'Aged 4 Years',
+                    foundValue: 'Aged 4 Years',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'governmentWarning',
+                    expectedValue: GW_FULL,
+                    foundValue: GW_FULL,
+                    status: 'pass',
+                    notes: 'Header and statutory text verified (100% word match).',
+                },
             ],
         },
     },
@@ -92,13 +141,55 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
             overallStatus: 'warning',
             processingTimeMs: 2340,
             fields: [
-                { fieldName: 'brandName', expectedValue: 'Ridgeline Spirits', foundValue: 'Ridgeline Spirits Co.', status: 'warning', notes: 'Label appends "Co." — minor variation, review for consistency with COLA.' },
-                { fieldName: 'classType', expectedValue: 'Straight Rye Whisky', foundValue: 'Rye Whisky', status: 'warning', notes: 'Label omits "Straight" designation — verify whether age requirements are met per 27 CFR 5.143.' },
-                { fieldName: 'alcoholContent', expectedValue: '46% Alc./Vol.', foundValue: '46% Alc./Vol.', status: 'pass', notes: '' },
-                { fieldName: 'netContents', expectedValue: '750 mL', foundValue: '750 mL', status: 'pass', notes: '' },
-                { fieldName: 'producerName', expectedValue: 'Ridgeline Distilling Company LLC', foundValue: 'Ridgeline Distilling Co. LLC', status: 'warning', notes: '"Company" abbreviated as "Co." — minor variation, agent should confirm acceptability.' },
-                { fieldName: 'producerAddress', expectedValue: 'Denver, CO 80203', foundValue: 'Denver, CO 80203', status: 'pass', notes: '' },
-                { fieldName: 'governmentWarning', expectedValue: GW_FULL, foundValue: GW_FULL, status: 'pass', notes: 'Header and statutory text verified (100% word match).' },
+                {
+                    fieldName: 'brandName',
+                    expectedValue: 'Ridgeline Spirits',
+                    foundValue: 'Ridgeline Spirits Co.',
+                    status: 'warning',
+                    notes: 'Label appends "Co." — minor variation, review for consistency with COLA.',
+                },
+                {
+                    fieldName: 'classType',
+                    expectedValue: 'Straight Rye Whisky',
+                    foundValue: 'Rye Whisky',
+                    status: 'warning',
+                    notes: 'Label omits "Straight" designation — verify whether age requirements are met per 27 CFR 5.143.',
+                },
+                {
+                    fieldName: 'alcoholContent',
+                    expectedValue: '46% Alc./Vol.',
+                    foundValue: '46% Alc./Vol.',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'netContents',
+                    expectedValue: '750 mL',
+                    foundValue: '750 mL',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerName',
+                    expectedValue: 'Ridgeline Distilling Company LLC',
+                    foundValue: 'Ridgeline Distilling Co. LLC',
+                    status: 'warning',
+                    notes: '"Company" abbreviated as "Co." — minor variation, agent should confirm acceptability.',
+                },
+                {
+                    fieldName: 'producerAddress',
+                    expectedValue: 'Denver, CO 80203',
+                    foundValue: 'Denver, CO 80203',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'governmentWarning',
+                    expectedValue: GW_FULL,
+                    foundValue: GW_FULL,
+                    status: 'pass',
+                    notes: 'Header and statutory text verified (100% word match).',
+                },
             ],
         },
     },
@@ -123,13 +214,56 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
             overallStatus: 'fail',
             processingTimeMs: 3100,
             fields: [
-                { fieldName: 'brandName', expectedValue: 'Canyon Creek', foundValue: 'Canyon Creek Distillery', status: 'warning', notes: 'Label includes "Distillery" which is not on the COLA application — review for consistency.' },
-                { fieldName: 'classType', expectedValue: 'Vodka', foundValue: null, status: 'fail', notes: 'Class/type designation is absent from the label face. Required per 27 CFR 5.63.' },
-                { fieldName: 'alcoholContent', expectedValue: '40% Alc./Vol.', foundValue: '40% Alc./Vol.', status: 'pass', notes: '' },
-                { fieldName: 'netContents', expectedValue: '1 L', foundValue: '1 L', status: 'pass', notes: '' },
-                { fieldName: 'producerName', expectedValue: 'Canyon Creek Spirits Inc.', foundValue: 'Canyon Creek Spirits', status: 'warning', notes: 'Label omits "Inc." — legal entity suffix may be required per permit.' },
-                { fieldName: 'producerAddress', expectedValue: 'Phoenix, AZ 85001', foundValue: 'Phoenix, AZ 85001', status: 'pass', notes: '' },
-                { fieldName: 'governmentWarning', expectedValue: GW_FULL, foundValue: 'Government Warning: (1) According to the Surgeon General…', status: 'fail', notes: 'Header must appear as "GOVERNMENT WARNING:" in all caps per 27 CFR 16.21.' },
+                {
+                    fieldName: 'brandName',
+                    expectedValue: 'Canyon Creek',
+                    foundValue: 'Canyon Creek Distillery',
+                    status: 'warning',
+                    notes: 'Label includes "Distillery" which is not on the COLA application — review for consistency.',
+                },
+                {
+                    fieldName: 'classType',
+                    expectedValue: 'Vodka',
+                    foundValue: null,
+                    status: 'fail',
+                    notes: 'Class/type designation is absent from the label face. Required per 27 CFR 5.63.',
+                },
+                {
+                    fieldName: 'alcoholContent',
+                    expectedValue: '40% Alc./Vol.',
+                    foundValue: '40% Alc./Vol.',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'netContents',
+                    expectedValue: '1 L',
+                    foundValue: '1 L',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerName',
+                    expectedValue: 'Canyon Creek Spirits Inc.',
+                    foundValue: 'Canyon Creek Spirits',
+                    status: 'warning',
+                    notes: 'Label omits "Inc." — legal entity suffix may be required per permit.',
+                },
+                {
+                    fieldName: 'producerAddress',
+                    expectedValue: 'Phoenix, AZ 85001',
+                    foundValue: 'Phoenix, AZ 85001',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'governmentWarning',
+                    expectedValue: GW_FULL,
+                    foundValue:
+                        'Government Warning: (1) According to the Surgeon General…',
+                    status: 'fail',
+                    notes: 'Header must appear as "GOVERNMENT WARNING:" in all caps per 27 CFR 16.21.',
+                },
             ],
         },
     },
@@ -156,15 +290,69 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
             overallStatus: 'warning',
             processingTimeMs: 2710,
             fields: [
-                { fieldName: 'brandName', expectedValue: 'Hillside Cellars', foundValue: 'Hillside Cellars', status: 'pass', notes: '' },
-                { fieldName: 'classType', expectedValue: 'Red Table Wine', foundValue: 'Red Wine', status: 'warning', notes: '"Table Wine" omitted — verify whether the full designation is required on this label type.' },
-                { fieldName: 'alcoholContent', expectedValue: '13.5% Alc./Vol.', foundValue: '13.5% Alc./Vol.', status: 'pass', notes: '' },
-                { fieldName: 'netContents', expectedValue: '750 mL', foundValue: '750 mL', status: 'pass', notes: '' },
-                { fieldName: 'producerName', expectedValue: 'Hillside Cellars LLC', foundValue: 'Hillside Cellars LLC', status: 'pass', notes: '' },
-                { fieldName: 'producerAddress', expectedValue: 'Napa, CA 94558', foundValue: 'Napa, CA 94558', status: 'pass', notes: '' },
-                { fieldName: 'appellation', expectedValue: 'Napa Valley', foundValue: 'California', status: 'warning', notes: 'Label shows "California" but COLA application specifies "Napa Valley" — appellation upgrade requires at least 85% Napa Valley fruit per 27 CFR 4.25.' },
-                { fieldName: 'sulfiteDeclaration', expectedValue: 'Contains Sulfites', foundValue: null, status: 'fail', notes: 'Sulfite declaration absent from label. Required when SO₂ exceeds 10 ppm per 27 CFR 4.32(e).' },
-                { fieldName: 'governmentWarning', expectedValue: GW_FULL, foundValue: GW_FULL, status: 'pass', notes: 'Header and statutory text verified (100% word match).' },
+                {
+                    fieldName: 'brandName',
+                    expectedValue: 'Hillside Cellars',
+                    foundValue: 'Hillside Cellars',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'classType',
+                    expectedValue: 'Red Table Wine',
+                    foundValue: 'Red Wine',
+                    status: 'warning',
+                    notes: '"Table Wine" omitted — verify whether the full designation is required on this label type.',
+                },
+                {
+                    fieldName: 'alcoholContent',
+                    expectedValue: '13.5% Alc./Vol.',
+                    foundValue: '13.5% Alc./Vol.',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'netContents',
+                    expectedValue: '750 mL',
+                    foundValue: '750 mL',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerName',
+                    expectedValue: 'Hillside Cellars LLC',
+                    foundValue: 'Hillside Cellars LLC',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerAddress',
+                    expectedValue: 'Napa, CA 94558',
+                    foundValue: 'Napa, CA 94558',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'appellation',
+                    expectedValue: 'Napa Valley',
+                    foundValue: 'California',
+                    status: 'warning',
+                    notes: 'Label shows "California" but COLA application specifies "Napa Valley" — appellation upgrade requires at least 85% Napa Valley fruit per 27 CFR 4.25.',
+                },
+                {
+                    fieldName: 'sulfiteDeclaration',
+                    expectedValue: 'Contains Sulfites',
+                    foundValue: null,
+                    status: 'fail',
+                    notes: 'Sulfite declaration absent from label. Required when SO₂ exceeds 10 ppm per 27 CFR 4.32(e).',
+                },
+                {
+                    fieldName: 'governmentWarning',
+                    expectedValue: GW_FULL,
+                    foundValue: GW_FULL,
+                    status: 'pass',
+                    notes: 'Header and statutory text verified (100% word match).',
+                },
             ],
         },
     },
@@ -189,13 +377,55 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
             overallStatus: 'pass',
             processingTimeMs: 1640,
             fields: [
-                { fieldName: 'brandName', expectedValue: 'Ironforge Brewing', foundValue: 'Ironforge Brewing', status: 'pass', notes: '' },
-                { fieldName: 'classType', expectedValue: 'India Pale Ale (IPA)', foundValue: 'India Pale Ale', status: 'pass', notes: 'IPA abbreviation omitted but designation is semantically equivalent.' },
-                { fieldName: 'netContents', expectedValue: '355 mL', foundValue: '355 mL (12 fl. oz.)', status: 'pass', notes: 'Dual-measure format is acceptable.' },
-                { fieldName: 'producerName', expectedValue: 'Ironforge Brewing Company', foundValue: 'Ironforge Brewing Company', status: 'pass', notes: '' },
-                { fieldName: 'producerAddress', expectedValue: 'Portland, OR 97201', foundValue: 'Portland, OR 97201', status: 'pass', notes: '' },
-                { fieldName: 'governmentWarning', expectedValue: GW_FULL, foundValue: GW_FULL, status: 'pass', notes: 'Header and statutory text verified (100% word match).' },
-                { fieldName: 'alcoholContent', expectedValue: '6.8% Alc./Vol.', foundValue: '6.8% Alc./Vol.', status: 'pass', notes: '' },
+                {
+                    fieldName: 'brandName',
+                    expectedValue: 'Ironforge Brewing',
+                    foundValue: 'Ironforge Brewing',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'classType',
+                    expectedValue: 'India Pale Ale (IPA)',
+                    foundValue: 'India Pale Ale',
+                    status: 'pass',
+                    notes: 'IPA abbreviation omitted but designation is semantically equivalent.',
+                },
+                {
+                    fieldName: 'netContents',
+                    expectedValue: '355 mL',
+                    foundValue: '355 mL (12 fl. oz.)',
+                    status: 'pass',
+                    notes: 'Dual-measure format is acceptable.',
+                },
+                {
+                    fieldName: 'producerName',
+                    expectedValue: 'Ironforge Brewing Company',
+                    foundValue: 'Ironforge Brewing Company',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'producerAddress',
+                    expectedValue: 'Portland, OR 97201',
+                    foundValue: 'Portland, OR 97201',
+                    status: 'pass',
+                    notes: '',
+                },
+                {
+                    fieldName: 'governmentWarning',
+                    expectedValue: GW_FULL,
+                    foundValue: GW_FULL,
+                    status: 'pass',
+                    notes: 'Header and statutory text verified (100% word match).',
+                },
+                {
+                    fieldName: 'alcoholContent',
+                    expectedValue: '6.8% Alc./Vol.',
+                    foundValue: '6.8% Alc./Vol.',
+                    status: 'pass',
+                    notes: '',
+                },
             ],
         },
     },
@@ -219,8 +449,18 @@ export function applyMockBatch(
 ): void {
     const jobId = 'debug-' + Math.random().toString(36).slice(2, 7)
     const labels: BatchLabelItem[] = [
-        { labelId: '1', filename: 'spirits-pass.png', status: 'complete', result: DEMO_SCENARIOS[0].result },
-        { labelId: '2', filename: 'wine-review.png', status: 'complete', result: DEMO_SCENARIOS[3].result },
+        {
+            labelId: '1',
+            filename: 'spirits-pass.png',
+            status: 'complete',
+            result: DEMO_SCENARIOS[0].result,
+        },
+        {
+            labelId: '2',
+            filename: 'wine-review.png',
+            status: 'complete',
+            result: DEMO_SCENARIOS[3].result,
+        },
         { labelId: '3', filename: 'spirits-fail.png', status: 'processing' },
     ]
     onInit(jobId, labels)
@@ -228,7 +468,11 @@ export function applyMockBatch(
         onComplete(
             labels.map((l) =>
                 l.labelId === '3'
-                    ? { ...l, status: 'complete', result: DEMO_SCENARIOS[2].result }
+                    ? {
+                        ...l,
+                        status: 'complete',
+                        result: DEMO_SCENARIOS[2].result,
+                    }
                     : l
             )
         )

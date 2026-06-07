@@ -5,7 +5,7 @@
     "semi": false,
     "singleQuote": true,
     "bracketSpacing": true,
-    "bracketSameLine": false,
-    "arrowParens": "always",
-    "endOfLine": "lf"
+    "singleAttributePerLine": false,
+    "htmlWhitespaceSensitivity": "ignore",
+    "bracketSameLine": true
 }

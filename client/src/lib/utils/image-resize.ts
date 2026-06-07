@@ -17,7 +17,8 @@ export async function resizeForUpload(file: File): Promise<File> {
                 return
             }
 
-            const scale = longEdge > MAX_LONG_EDGE ? MAX_LONG_EDGE / longEdge : 1
+            const scale =
+                longEdge > MAX_LONG_EDGE ? MAX_LONG_EDGE / longEdge : 1
             const canvas = document.createElement('canvas')
             canvas.width = Math.round(w * scale)
             canvas.height = Math.round(h * scale)
@@ -26,14 +27,20 @@ export async function resizeForUpload(file: File): Promise<File> {
 
             canvas.toBlob(
                 (blob) => {
-                    if (!blob) { resolve(file); return }
+                    if (!blob) {
+                        resolve(file)
+                        return
+                    }
                     resolve(new File([blob], file.name, { type: 'image/jpeg' }))
                 },
                 'image/jpeg',
-                0.88,
+                0.88
             )
         }
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+        img.onerror = () => {
+            URL.revokeObjectURL(url)
+            resolve(file)
+        }
         img.src = url
     })
 }
