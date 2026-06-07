@@ -23,11 +23,8 @@
         setupGlobalDragAndDrop,
         setupCtrlVHandler,
     } from '$lib/utils/globalDragAndDrop'
-    import {
-        MOCK_EXTRACTION,
-        MOCK_COMPARISON,
-        applyMockBatch,
-    } from '$lib/utils/debug-mocks'
+    import { applyMockBatch, DEMO_SCENARIOS } from '$lib/utils/debug-mocks'
+    import type { DemoScenario } from '$lib/utils/debug-mocks'
     import { exportBatchCsv, exportSingleLabelCsv } from '$lib/utils/export'
     import type { ReviewDecisions } from '$lib/utils/review-types'
     import DragAndDrop from '$lib/components/ui/dragAndDrop/DragAndDrop.svelte'
@@ -398,35 +395,7 @@
         }
     }
 
-    // #region Debug
-    function mockExtraction() {
-        ;({ imagePreviewUrl, result } = MOCK_EXTRACTION)
-        const id = `debug-extraction-${Date.now()}`
-        jobId = id
-        jobDone = true
-        labels = [
-            {
-                labelId: id,
-                filename: 'mock-label.png',
-                status: 'complete',
-                result: MOCK_EXTRACTION.result,
-            },
-        ]
-    }
-    function mockComparison() {
-        ;({ imagePreviewUrl, result } = MOCK_COMPARISON)
-        const id = `debug-comparison-${Date.now()}`
-        jobId = id
-        jobDone = true
-        labels = [
-            {
-                labelId: id,
-                filename: 'mock-label.png',
-                status: 'complete',
-                result: MOCK_COMPARISON.result,
-            },
-        ]
-    }
+    // #region Demo scenarios (batch wiring)
     function mockBatch() {
         applyMockBatch(
             (id, lbs) => {
@@ -438,6 +407,46 @@
                 jobDone = true
             }
         )
+    }
+
+    // #region Demo scenarios
+    let showDemoPanel = $state(false)
+
+    function loadScenario(scenario: DemoScenario) {
+        showDemoPanel = false
+        // Application data
+        beverageType = scenario.appData.beverageType
+        brandName = scenario.appData.brandName
+        classType = scenario.appData.classType
+        alcoholContent = scenario.appData.alcoholContent
+        netContents = scenario.appData.netContents
+        producerName = scenario.appData.producerName
+        producerAddress = scenario.appData.producerAddress
+        countryOfOrigin = scenario.appData.countryOfOrigin ?? ''
+        appellation = scenario.appData.appellation ?? ''
+        ageStatement = scenario.appData.ageStatement ?? ''
+        colorDisclosures = scenario.appData.colorDisclosures ?? ''
+        commodityStatement = scenario.appData.commodityStatement ?? ''
+        sulfiteDeclaration = scenario.appData.sulfiteDeclaration ?? ''
+        foreignWinePct = scenario.appData.foreignWinePct ?? ''
+        colorAdditives = scenario.appData.colorAdditives ?? ''
+        aspartameDeclaration = scenario.appData.aspartameDeclaration ?? ''
+        // Result
+        imagePreviewUrl = scenario.imagePreviewUrl
+        result = scenario.result
+        selectedReviewFieldName = null
+        error = null
+        const id = `demo-${scenario.id}-${Date.now()}`
+        jobId = id
+        jobDone = true
+        labels = [
+            {
+                labelId: id,
+                filename: `${scenario.id}.png`,
+                status: 'complete',
+                result: scenario.result,
+            },
+        ]
     }
 
     // #region Global Ctrl+V — fills application data fields from clipboard
@@ -507,28 +516,99 @@
                 ></span>
                 {headerProcessingTime}
             </span>
-            <!-- #region Debug buttons -->
-            {#if import.meta.env.DEV}
+            <!-- Demo scenarios -->
+            <div class="relative">
                 <Button
                     variant="outline"
                     size="sm"
-                    class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                    onclick={mockExtraction}>Debug: Extraction</Button
+                    class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                    onclick={() => (showDemoPanel = !showDemoPanel)}
                 >
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                    onclick={mockComparison}>Debug: Comparison</Button
-                >
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                    onclick={mockBatch}>Debug: Batch</Button
-                >
-            {/if}
-            <!-- #endregion -->
+                    Load Demo
+                </Button>
+                {#if showDemoPanel}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div
+                        class="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-gray-200 bg-white shadow-lg"
+                        onkeydown={(e) =>
+                            e.key === 'Escape' && (showDemoPanel = false)}
+                    >
+                        <div class="border-b border-gray-100 px-3 py-2">
+                            <p class="text-xs font-semibold text-gray-700">
+                                Demo Scenarios
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Load a simulated result without uploading a
+                                label.
+                            </p>
+                        </div>
+                        <ul class="py-1">
+                            {#each DEMO_SCENARIOS as scenario (scenario.id)}
+                                <li>
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                        onclick={() => loadScenario(scenario)}
+                                    >
+                                        <span
+                                            class="mt-0.5 h-2 w-2 shrink-0 rounded-full {scenario.status ===
+                                            'pass'
+                                                ? 'bg-green-500'
+                                                : scenario.status === 'warning'
+                                                  ? 'bg-amber-400'
+                                                  : 'bg-red-500'}"
+                                            aria-hidden="true"
+                                        ></span>
+                                        <span>
+                                            <span
+                                                class="block text-sm font-medium text-gray-900"
+                                                >{scenario.label}</span
+                                            >
+                                            <span
+                                                class="block text-xs text-gray-500"
+                                                >{scenario.description}</span
+                                            >
+                                        </span>
+                                    </button>
+                                </li>
+                            {/each}
+                            <li class="border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                                    onclick={() => {
+                                        showDemoPanel = false
+                                        mockBatch()
+                                    }}
+                                >
+                                    <span
+                                        class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-blue-400"
+                                        aria-hidden="true"
+                                    ></span>
+                                    <span>
+                                        <span
+                                            class="block text-sm font-medium text-gray-900"
+                                            >Batch — Mixed Results</span
+                                        >
+                                        <span
+                                            class="block text-xs text-gray-500"
+                                            >3-label batch with pass, review,
+                                            and fail.</span
+                                        >
+                                    </span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <button
+                        type="button"
+                        class="fixed inset-0 z-40 cursor-default"
+                        aria-label="Close demo panel"
+                        tabindex="-1"
+                        onclick={() => (showDemoPanel = false)}
+                    ></button>
+                {/if}
+            </div>
             {#if jobDone || result}
                 <Tooltip text="Clear everything and start fresh">
                     <Button variant="outline" size="sm" onclick={clearAll}
@@ -716,9 +796,8 @@
                             workstation
                             hideFileInput={true}
                             onFileInput={(e) => {
-                                const fl = (
-                                    e.currentTarget as HTMLInputElement
-                                ).files
+                                const fl = (e.currentTarget as HTMLInputElement)
+                                    .files
                                 if (fl) applyFiles(fl)
                             }}
                             onSelectFile={selectFile}

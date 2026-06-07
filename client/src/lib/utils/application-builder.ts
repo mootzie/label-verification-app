@@ -1,4 +1,115 @@
 export function parseSmartPaste(text: string) {
+    const trimmed = text.trim()
+
+    // JSON object
+    if (trimmed.startsWith('{')) {
+        try {
+            const obj = JSON.parse(trimmed)
+            if (typeof obj === 'object' && obj !== null) return parseFromObject(obj)
+        } catch { /* fall through */ }
+    }
+
+    // JSON array — use first element
+    if (trimmed.startsWith('[')) {
+        try {
+            const arr = JSON.parse(trimmed)
+            if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'object') {
+                return parseFromObject(arr[0])
+            }
+        } catch { /* fall through */ }
+    }
+
+    // SQL INSERT INTO table (col1, col2) VALUES (val1, val2)
+    const sqlMatch = trimmed.match(
+        /INSERT\s+INTO\s+\S+\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i
+    )
+    if (sqlMatch) {
+        const cols = sqlMatch[1].split(',').map((s) => s.trim().replace(/[`'"[\]]/g, ''))
+        const vals = sqlMatch[2]
+            .split(',')
+            .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+        const obj: Record<string, string> = {}
+        cols.forEach((c, i) => { obj[c] = vals[i] ?? '' })
+        return parseFromObject(obj)
+    }
+
+    return parsePlainText(text)
+}
+
+// Map a loose object (from JSON or SQL) to our field shape.
+// Accepts camelCase, snake_case, and common label variants.
+function parseFromObject(obj: Record<string, unknown>) {
+    function pick(...keys: string[]): string | null {
+        for (const k of keys) {
+            const v = obj[k]
+            if (typeof v === 'string' && v.trim()) return v.trim()
+        }
+        return null
+    }
+
+    const brandName = pick('brandName', 'brand_name', 'brand', 'name')
+    const producerName = pick('producerName', 'producer_name', 'producer', 'bottler', 'bottlerName')
+    const producerAddress = pick('producerAddress', 'producer_address', 'address', 'bottlerAddress')
+    const countryOfOrigin = pick('countryOfOrigin', 'country_of_origin', 'country', 'origin')
+    const alcoholContent = pick('alcoholContent', 'alcohol_content', 'alcohol', 'abv', 'alc')
+    const netContents = pick('netContents', 'net_contents', 'netContent', 'volume', 'size')
+    const vintageYear = pick('vintageYear', 'vintage_year', 'vintage', 'year')
+    const classType = pick('classType', 'class_type', 'class', 'type', 'style', 'variety')
+    const appellation = pick('appellation')
+    const ageStatement = pick('ageStatement', 'age_statement', 'age')
+    const colorDisclosures = pick('colorDisclosures', 'color_disclosures', 'color')
+    const commodityStatement = pick('commodityStatement', 'commodity_statement', 'commodity')
+    const sulfiteDeclaration = pick('sulfiteDeclaration', 'sulfite_declaration', 'sulfites')
+    const foreignWinePct = pick('foreignWinePct', 'foreign_wine_pct', 'foreignWine')
+    const colorAdditives = pick('colorAdditives', 'color_additives')
+    const aspartameDeclaration = pick('aspartameDeclaration', 'aspartame_declaration', 'aspartame')
+
+    // beverageType detection: try explicit field first, then infer from classType/other fields
+    let beverageType: string | null = pick('beverageType', 'beverage_type', 'type') ?? null
+    if (beverageType && !['beer', 'wine', 'distilled_spirits'].includes(beverageType)) {
+        beverageType = inferBeverageType(beverageType + ' ' + (classType ?? ''))
+    }
+    if (!beverageType) {
+        beverageType = inferBeverageType(
+            [brandName, classType, producerName].filter(Boolean).join(' ')
+        )
+    }
+
+    return {
+        brandName,
+        producerName,
+        producerAddress,
+        countryOfOrigin,
+        beverageType,
+        classType,
+        alcoholContent,
+        netContents,
+        vintageYear,
+        appellation,
+        ageStatement,
+        colorDisclosures,
+        commodityStatement,
+        sulfiteDeclaration,
+        foreignWinePct,
+        colorAdditives,
+        aspartameDeclaration,
+    }
+}
+
+function inferBeverageType(text: string): string | null {
+    if (
+        /\b(whiskey|whisky|vodka|rum\b|gin\b|tequila|bourbon|brandy|mezcal|cognac|distilled\s+spirits?)\b/i.test(text)
+    ) return 'distilled_spirits'
+    if (
+        /\b(wine|champagne|chardonnay|cabernet|merlot|pinot|riesling|sauvignon|mead|prosecco|bordeaux|burgundy|chablis|shiraz|viognier)\b/i.test(text)
+    ) return 'wine'
+    if (
+        /\b(beer|ale\b|lager|stout|porter\b|ipa\b|pilsner|saison|bock\b|weizen|hefeweizen|pale\s+ale|wheat\s+beer)\b/i.test(text)
+    ) return 'beer'
+    return null
+}
+
+function parsePlainText(text: string) {
     // normalize tabs to newlines so tab-separated spreadsheet rows parse like multi-line blocks
     const normalized = text.replace(/\t/g, '\n')
     const lines = normalized.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -51,26 +162,7 @@ export function parseSmartPaste(text: string) {
         : null
 
     // beverageType: keyword scan → one of the three API values
-    let beverageType: string | null = null
-    if (
-        /\b(whiskey|whisky|vodka|rum\b|gin\b|tequila|bourbon|brandy|mezcal|cognac|distilled\s+spirits?)\b/i.test(
-            normalized
-        )
-    ) {
-        beverageType = 'distilled_spirits'
-    } else if (
-        /\b(wine|champagne|chardonnay|cabernet|merlot|pinot|riesling|sauvignon|mead|prosecco|bordeaux|burgundy|chablis|shiraz|viognier)\b/i.test(
-            normalized
-        )
-    ) {
-        beverageType = 'wine'
-    } else if (
-        /\b(beer|ale\b|lager|stout|porter\b|ipa\b|pilsner|saison|bock\b|weizen|hefeweizen|pale\s+ale|wheat\s+beer)\b/i.test(
-            normalized
-        )
-    ) {
-        beverageType = 'beer'
-    }
+    const beverageType = inferBeverageType(normalized)
 
     // classType: explicit "Class/Type/Style/Variety: ..." label, or second line if plain descriptor
     let classType: string | null = null
@@ -98,6 +190,14 @@ export function parseSmartPaste(text: string) {
         alcoholContent,
         netContents,
         vintageYear,
+        appellation: null,
+        ageStatement: null,
+        colorDisclosures: null,
+        commodityStatement: null,
+        sulfiteDeclaration: null,
+        foreignWinePct: null,
+        colorAdditives: null,
+        aspartameDeclaration: null,
     }
 }
 

@@ -261,10 +261,6 @@ function applyProgrammaticChecks(
   return { ...result, fields };
 }
 
-// ---------------------------------------------------------------------------
-// System prompt (Parts 1 & 3)
-// ---------------------------------------------------------------------------
-
 const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance analyst. Your job is to extract field values from alcohol beverage label images with high accuracy.
 
 EXTRACTION RULES:
@@ -290,9 +286,6 @@ const SYSTEM_PROMPT_STRICT =
   SYSTEM_PROMPT +
   "\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.";
 
-// ---------------------------------------------------------------------------
-// User message template (Part 2)
-// ---------------------------------------------------------------------------
 
 function buildUserMessage(application: LabelApplicationInput): string {
   const bev = application.beverageType ?? "distilled_spirits";

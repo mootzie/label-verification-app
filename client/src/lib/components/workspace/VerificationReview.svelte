@@ -41,6 +41,12 @@
 
     const GOVERNMENT_WARNING_REQUIRED =
         'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.'
+    const LOADING_STEPS = [
+        'Reading label...',
+        'Extracting fields...',
+        'Checking rules...',
+        'Preparing review table...',
+    ]
 
     // const INSPECTOR_TONE: Record<FieldStatus, string> = {
     //     pass: 'border-green-500 bg-green-50/60',
@@ -54,6 +60,8 @@
     let agentComments = $state<Record<string, string>>({})
     let decisions = $state<ReviewDecisions>({})
     let markAllMessage = $state<string | null>(null)
+    let columnWidths = $state([20, 34, 31, 15])
+    const minColumnWidths = [14, 22, 22, 8]
 
     // fieldDefMap: resultKey (camelCase) → BeverageFieldDef for the active type
     // name_address splits into producerName + producerAddress — both map to the same def
@@ -152,6 +160,62 @@
 
     function setAgentComment(fieldName: string, value: string) {
         agentComments = { ...agentComments, [fieldName]: value }
+    }
+
+    function resizeColumns(
+        boundaryIndex: number,
+        deltaPercent: number,
+        commit = true
+    ) {
+        const next = [...columnWidths]
+        const left = next[boundaryIndex]
+        const right = next[boundaryIndex + 1]
+        const minLeft = minColumnWidths[boundaryIndex]
+        const minRight = minColumnWidths[boundaryIndex + 1]
+        const allowedDelta = Math.max(
+            minLeft - left,
+            Math.min(deltaPercent, right - minRight)
+        )
+        next[boundaryIndex] = Number((left + allowedDelta).toFixed(2))
+        next[boundaryIndex + 1] = Number((right - allowedDelta).toFixed(2))
+        if (commit) columnWidths = next
+        return next
+    }
+
+    function startColumnResize(boundaryIndex: number, event: PointerEvent) {
+        event.preventDefault()
+        event.stopPropagation()
+        const table = (event.currentTarget as HTMLElement).closest('table')
+        const tableWidth = table?.getBoundingClientRect().width ?? 0
+        if (tableWidth <= 0) return
+
+        const startX = event.clientX
+        const startWidths = [...columnWidths]
+
+        function handleMove(moveEvent: PointerEvent) {
+            const deltaPercent =
+                ((moveEvent.clientX - startX) / tableWidth) * 100
+            columnWidths = startWidths
+            resizeColumns(boundaryIndex, deltaPercent)
+        }
+
+        function handleUp() {
+            window.removeEventListener('pointermove', handleMove)
+            window.removeEventListener('pointerup', handleUp)
+        }
+
+        window.addEventListener('pointermove', handleMove)
+        window.addEventListener('pointerup', handleUp, { once: true })
+    }
+
+    function handleColumnResizeKeydown(
+        boundaryIndex: number,
+        event: KeyboardEvent
+    ) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+        event.preventDefault()
+        event.stopPropagation()
+        resizeColumns(boundaryIndex, event.key === 'ArrowRight' ? 2 : -2)
     }
 
     function decisionFor(fieldName: string): ReviewDecision {
@@ -428,15 +492,70 @@
                     <table
                         class="w-full min-w-[760px] table-fixed text-left text-sm h-full"
                     >
+                        <colgroup>
+                            {#each columnWidths as width}
+                                <col style={`width: ${width}%`} />
+                            {/each}
+                        </colgroup>
                         <thead
                             class="sticky top-0 z-10 border-b border-gray-300 bg-gray-100 text-[11px] font-bold text-gray-600 shadow-sm"
                         >
                             <tr>
-                                <th class="w-[18%] px-3 py-2">Field</th>
-                                <th class="w-[32%] px-3 py-2"
-                                    >Label (extracted)</th
-                                >
-                                <th class="w-[32%] px-3 py-2">
+                                <th class="relative px-3 py-2">
+                                    Field
+                                    <button
+                                        type="button"
+                                        aria-label="Resize Field column"
+                                        class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none"
+                                        onpointerdown={(event) =>
+                                            startColumnResize(0, event)}
+                                        onkeydown={(event) =>
+                                            handleColumnResizeKeydown(0, event)}
+                                    >
+                                        <span
+                                            class="flex flex-col gap-[3px]"
+                                            aria-hidden="true"
+                                        >
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                        </span>
+                                    </button>
+                                </th>
+                                <th class="relative px-3 py-2">
+                                    Label (extracted)
+                                    <button
+                                        type="button"
+                                        aria-label="Resize Label extracted column"
+                                        class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none"
+                                        onpointerdown={(event) =>
+                                            startColumnResize(1, event)}
+                                        onkeydown={(event) =>
+                                            handleColumnResizeKeydown(1, event)}
+                                    >
+                                        <span
+                                            class="flex flex-col gap-[3px]"
+                                            aria-hidden="true"
+                                        >
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                        </span>
+                                    </button>
+                                </th>
+                                <th class="relative px-3 py-2">
                                     <span>Application (provided)</span>
                                     {#if isExtractionOnly}
                                         <span
@@ -446,8 +565,32 @@
                                             only
                                         </span>
                                     {/if}
+                                    <button
+                                        type="button"
+                                        aria-label="Resize Application provided column"
+                                        class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none"
+                                        onpointerdown={(event) =>
+                                            startColumnResize(2, event)}
+                                        onkeydown={(event) =>
+                                            handleColumnResizeKeydown(2, event)}
+                                    >
+                                        <span
+                                            class="flex flex-col gap-[3px]"
+                                            aria-hidden="true"
+                                        >
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                            <span
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
+                                            ></span>
+                                        </span>
+                                    </button>
                                 </th>
-                                <th class="w-[13%] px-3 py-2">Status</th>
+                                <th class="px-3 py-2">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -459,7 +602,9 @@
                                     expandedFields[field.fieldName] === true}
                                 <tr
                                     class="hover:cursor-pointer {selected
-                                        ? 'bg-blue-50'
+                                        ? expanded
+                                            ? 'bg-blue-100'
+                                            : 'bg-blue-50'
                                         : 'bg-white hover:bg-slate-50'} align-middle transition-colors focus-within:bg-blue-50"
                                     style="box-shadow: inset 3px 0 0 {selected
                                         ? statusAccentColor(field)
@@ -522,14 +667,14 @@
                                         <div class="flex items-center">
                                             {#if isOptionalNotFound(field)}
                                                 <span
-                                                    class="rounded border border-gray-200 bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500"
+                                                    class="inline-flex h-6 w-20 items-center justify-center rounded-full border border-gray-200 bg-gray-100 px-2 text-[11px] font-medium text-gray-500"
                                                 >
                                                     N/A
                                                 </span>
                                             {:else}
                                                 <Badge
                                                     variant={field.status}
-                                                    class="gap-1 border-0 px-2 py-0.5 text-[11px]"
+                                                    class="h-6 w-20 justify-center gap-1 border-0 px-2 text-[11px]"
                                                 >
                                                     <span aria-hidden="true"
                                                         >{statusGlyph(
@@ -572,7 +717,7 @@
                                 </tr>
                                 {#if expanded}
                                     <tr
-                                        class="bg-slate-50"
+                                        class="bg-blue-50/60"
                                         style="box-shadow: inset 3px 0 0 {statusAccentColor(
                                             field
                                         )};"
@@ -582,33 +727,58 @@
                                             class="border-t px-4 py-3"
                                         >
                                             <div
-                                                class="grid gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(0,1fr)_10rem]"
+                                                class="rounded-md border border-gray-300 bg-white p-3 shadow-sm ring-1 ring-blue-100"
                                             >
-                                                <div class="min-w-0">
+                                                <div
+                                                    class="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-2"
+                                                >
+                                                    <div
+                                                        class="flex items-center gap-2"
+                                                    >
+                                                        <span
+                                                            class="h-2.5 w-2.5 rounded-sm {statusAccentClass(
+                                                                field
+                                                            )}"
+                                                            aria-hidden="true"
+                                                        ></span>
+                                                        <span
+                                                            class="truncate text-xs font-semibold text-gray-700"
+                                                        >
+                                                            {formatFieldName(
+                                                                field.fieldName
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div>
                                                     <span
                                                         class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
                                                         >Review notes</span
                                                     >
                                                     <div
-                                                        class="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950"
+                                                        class="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950 items-center"
                                                     >
                                                         <span
-                                                            class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                                                            class="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
                                                             aria-hidden="true"
                                                         ></span>
                                                         <p>
                                                             {reviewNote(field)}
                                                         </p>
                                                     </div>
-                                                    <label class="mt-3 block">
+                                                </div>
+
+                                                <div class="mt-3">
+                                                    <label
+                                                        class="block min-w-0"
+                                                    >
                                                         <span
                                                             class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
                                                             >Agent comment
                                                             (optional)</span
                                                         >
-                                                        <input
-                                                            type="text"
-                                                            class="h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-xs text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                        <textarea
+                                                            class="min-h-[4.5rem] w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-xs leading-5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                                             placeholder="Add a comment..."
                                                             value={agentComments[
                                                                 field.fieldName
@@ -620,16 +790,16 @@
                                                                         .currentTarget
                                                                         .value
                                                                 )}
-                                                        />
+                                                        ></textarea>
                                                     </label>
                                                 </div>
                                                 <div
-                                                    class="flex flex-col justify-end gap-2"
+                                                    class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
                                                 >
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        class="h-9 border-gray-300 bg-white text-gray-800 hover:bg-gray-50 {decisionFor(
+                                                        class="h-9 w-full border-gray-300 bg-white text-gray-800 hover:bg-gray-50 {decisionFor(
                                                             field.fieldName
                                                         ) ===
                                                         'accepted_variation'
@@ -644,7 +814,7 @@
                                                     >
                                                     <Button
                                                         size="sm"
-                                                        class="h-9 bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
+                                                        class="h-9 w-full bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
                                                             field.fieldName
                                                         ) === 'escalated'
                                                             ? 'ring-2 ring-amber-400'
@@ -695,15 +865,33 @@
         {:else if loading}
             <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div class="border-b border-blue-100 bg-blue-50/70 px-4 py-3">
-                    <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center justify-between gap-4">
                         <div class="min-w-0">
                             <p class="text-sm font-bold text-blue-950">
                                 Processing label image
                             </p>
-                            <p class="mt-0.5 text-xs font-medium text-blue-800">
-                                Extracting required fields and preparing the
-                                review table.
-                            </p>
+                            <div
+                                class="mt-1 flex min-h-5 items-center gap-2"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <span
+                                    class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-600"
+                                    aria-hidden="true"
+                                ></span>
+                                <div
+                                    class="loading-step-rotator relative min-h-5 min-w-[13rem] overflow-hidden text-xs font-semibold text-blue-800"
+                                >
+                                    {#each LOADING_STEPS as step, index}
+                                        <span
+                                            class="loading-step absolute left-0 top-0 whitespace-nowrap"
+                                            style={`animation-delay: ${index * 1.8}s`}
+                                        >
+                                            {step}
+                                        </span>
+                                    {/each}
+                                </div>
+                            </div>
                         </div>
                         <span
                             class="inline-flex shrink-0 items-center gap-2 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-800"
@@ -715,40 +903,31 @@
                             In progress
                         </span>
                     </div>
-                    <div class="mt-3 grid gap-2 sm:grid-cols-3">
-                        {#each ['Reading label', 'Extracting fields', 'Checking rules'] as step}
-                            <div
-                                class="rounded border border-blue-100 bg-white px-3 py-2"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="h-2 w-2 animate-pulse rounded-full bg-blue-500"
-                                        aria-hidden="true"
-                                    ></span>
-                                    <span
-                                        class="text-xs font-semibold text-gray-800"
-                                    >
-                                        {step}
-                                    </span>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-                <div class="min-h-0 flex-1 overflow-hidden p-4">
                     <div
-                        class="overflow-hidden rounded-md border border-gray-200"
+                        class="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100"
+                        aria-hidden="true"
                     >
                         <div
-                            class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase text-gray-500"
+                            class="loading-progress h-full w-1/3 rounded-full bg-blue-600"
+                        ></div>
+                    </div>
+                </div>
+                <div class="relative min-h-0 flex-1 overflow-hidden p-4">
+                    <div
+                        class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-200"
+                    >
+                        <div
+                            class="grid shrink-0 grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase text-gray-500"
                         >
                             <span>Field</span>
                             <span>Label</span>
                             <span>Application</span>
                             <span>Status</span>
                         </div>
-                        <div class="divide-y divide-gray-100 bg-white">
-                            {#each Array(7) as _, index}
+                        <div
+                            class="min-h-0 flex-1 divide-y divide-gray-100 bg-white"
+                        >
+                            {#each Array(12) as _, index}
                                 <div
                                     class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 px-3 py-3"
                                 >
@@ -776,6 +955,10 @@
                             {/each}
                         </div>
                     </div>
+                    <div
+                        class="pointer-events-none absolute inset-x-4 bottom-4 h-28 rounded-b-md bg-gradient-to-t from-white via-white/85 to-transparent"
+                        aria-hidden="true"
+                    ></div>
                 </div>
             </div>
         {:else if error}
@@ -793,3 +976,58 @@
         {/if}
     </section>
 {/if}
+
+<style>
+    .loading-step {
+        animation: loading-step-cycle 7.2s infinite;
+        opacity: 0;
+        transform: translateY(0.4rem);
+    }
+
+    .loading-progress {
+        animation: loading-progress-sweep 1.6s ease-in-out infinite;
+    }
+
+    @keyframes loading-step-cycle {
+        0%,
+        19% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        25%,
+        100% {
+            opacity: 0;
+            transform: translateY(-0.4rem);
+        }
+    }
+
+    @keyframes loading-progress-sweep {
+        0% {
+            transform: translateX(-110%);
+        }
+        50% {
+            transform: translateX(95%);
+        }
+        100% {
+            transform: translateX(310%);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .loading-step {
+            animation: none;
+            opacity: 0;
+            transform: none;
+        }
+
+        .loading-step:first-child {
+            opacity: 1;
+        }
+
+        .loading-progress {
+            animation: none;
+            transform: none;
+            width: 100%;
+        }
+    }
+</style>

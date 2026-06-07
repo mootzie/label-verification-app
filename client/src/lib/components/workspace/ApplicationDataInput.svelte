@@ -55,14 +55,32 @@
     let parsedCount = $state(0)
     let parseError = $state(false)
 
-    // Reset classType when beverage type changes — options are mutually exclusive
+    // Reset classType when beverage type changes, but only if the current value
+    // isn't valid for the new type — this avoids wiping a classType that was
+    // set in the same tick as beverageType (e.g. via paste auto-fill).
     let _prevType = $state<BeverageType>(beverageType)
     $effect(() => {
         if (beverageType !== _prevType) {
-            classType = ''
+            const validOpts = CLASS_TYPE_OPTIONS[beverageType] ?? []
+            if (!validOpts.includes(classType)) classType = ''
             _prevType = beverageType
         }
     })
+
+    // Find the closest option from the dropdown list for a free-text parsed value.
+    function matchClassType(raw: string, options: string[]): string {
+        if (!raw) return ''
+        const lower = raw.toLowerCase()
+        const exact = options.find((o) => o.toLowerCase() === lower)
+        if (exact) return exact
+        // option text is wholly contained inside the raw string
+        const contained = options.find((o) => lower.includes(o.toLowerCase()))
+        if (contained) return contained
+        // raw string is wholly contained inside an option
+        const contains = options.find((o) => o.toLowerCase().includes(lower))
+        if (contains) return contains
+        return ''
+    }
 
     let classTypeOptions = $derived(CLASS_TYPE_OPTIONS[beverageType] ?? [])
     let fieldSet = $derived(BEVERAGE_FIELD_SETS[beverageType] ?? [])
@@ -186,7 +204,11 @@
             countryOfOrigin = r.countryOfOrigin
         if (r.beverageType && !beverageType)
             beverageType = r.beverageType as BeverageType
-        if (r.classType && !classType) classType = r.classType
+        if (r.classType && !classType) {
+            const opts = CLASS_TYPE_OPTIONS[beverageType] ?? []
+            const matched = matchClassType(r.classType, opts)
+            if (matched) classType = matched
+        }
         if (r.alcoholContent && !alcoholContent)
             alcoholContent = r.alcoholContent
         if (r.netContents && !netContents) netContents = r.netContents
