@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
-import type { LabelApplicationInput } from "../types/index";
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
@@ -15,6 +14,7 @@ async function compressImage(
   const raw = imageBase64.replace(/^data:image\/\w+;base64,/, "");
   const buffer = Buffer.from(raw, "base64");
   const compressed = await sharp(buffer)
+    .sharpen({ sigma: 1.2 })
     .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 80 })
     .toBuffer();
@@ -24,7 +24,7 @@ async function compressImage(
 export async function callClaudeVision(
   imageBase64: string,
   _mediaType: ImageMediaType,
-  application: LabelApplicationInput = {},
+  userMessageText: string,
   systemPrompt?: string,
   signal?: AbortSignal,
 ): Promise<string> {
@@ -50,10 +50,7 @@ export async function callClaudeVision(
             },
             {
               type: "text",
-              text:
-                Object.keys(application).length > 0
-                  ? `Optional application data for comparison:\n${JSON.stringify(application, null, 2)}`
-                  : "No application data was provided. Extract readable label data from the image and assess mandatory TTB label requirements from the image alone.",
+              text: userMessageText,
             },
           ],
         },
@@ -69,6 +66,5 @@ export async function callClaudeVision(
   }
   return block.text;
 }
-
 
 export type { ImageMediaType };

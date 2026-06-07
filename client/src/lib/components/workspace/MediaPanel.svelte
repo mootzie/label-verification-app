@@ -76,13 +76,13 @@
                                         : 'text-gray-500'}
                                 />
                                 {#if blankState}
-                                    <span class="font-bold text-blue-700"
+                                    <!-- <span class="font-bold text-blue-700"
                                         >Step 1</span
                                     >
                                     <span
                                         class="h-1 w-1 rounded-full bg-blue-700"
                                         aria-hidden="true"
-                                    ></span>
+                                    ></span> -->
                                     Add Label Image
                                 {:else if files.length > 0 && selectedFileIndex !== null}
                                     <p
@@ -92,13 +92,13 @@
                                     </p>
                                 {/if}
                             </span>
-                            {#if blankState}
+                            <!-- {#if blankState}
                                 <span
                                     class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
                                 >
                                     Start here
                                 </span>
-                            {/if}
+                            {/if} -->
                         </div>
                     </CardTitle>
                 </div>

@@ -2,14 +2,37 @@ import { z } from "zod";
 import type {
   FieldResult,
   FieldStatus,
-  LabelApplication,
   LabelApplicationInput,
   OverallStatus,
   VerificationResult,
 } from "../types/index";
 import { callClaudeVision, type ImageMediaType } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
-import { TTB_REQUIREMENTS, CFR_CITATIONS } from "../constants/requirements";
+
+// ---------------------------------------------------------------------------
+// Zod schema for Claude's response (new format)
+// ---------------------------------------------------------------------------
+
+const ClaudeFieldSchema = z.object({
+  field: z.string(),
+  extracted: z.string().nullable(),
+  confidence: z.enum(["high", "medium", "low", "not_visible"]),
+  application: z.string().nullable(),
+  status: z.enum(["pass", "warning", "fail", "extracted"]),
+  notes: z.string().optional(),
+});
+
+const ClaudeResponseSchema = z.object({
+  fields: z.array(ClaudeFieldSchema).min(1),
+  image_quality: z
+    .enum(["good", "angled", "degraded", "angled_degraded"])
+    .optional(),
+  image_notes: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Zod schema for stored VerificationResult (used by Redis for read validation)
+// ---------------------------------------------------------------------------
 
 export const FieldResultSchema = z.object({
   fieldName: z.string(),
@@ -24,11 +47,30 @@ export const VerificationResultSchema = z.object({
   fields: z.array(FieldResultSchema).min(1),
   processingTimeMs: z.number().optional(),
   labelId: z.string().optional(),
+  imageQuality: z
+    .enum(["good", "angled", "degraded", "angled_degraded"])
+    .optional(),
+  imageNotes: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
+// Field name mapping: Claude snake_case → frontend camelCase
+// ---------------------------------------------------------------------------
+
+const FIELD_NAME_MAP: Record<string, string> = {
+  brand_name: "brandName",
+  class_type: "classType",
+  alcohol_content: "alcoholContent",
+  net_contents: "netContents",
+  producer_name: "producerName",
+  producer_address: "producerAddress",
+  country_of_origin: "countryOfOrigin",
+  government_warning: "governmentWarning",
+};
+
+// ---------------------------------------------------------------------------
 // Programmatic government warning validation
-// Claude extracts text only; all format/compliance rules live here.
+// Claude extracts text only; all compliance rules live here.
 // ---------------------------------------------------------------------------
 
 const GW_HEADER = "GOVERNMENT WARNING:";
@@ -40,80 +82,74 @@ function normalizeText(s: string): string {
   return s.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function levenshtein(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  const dp: number[] = Array.from({ length: n + 1 }, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const tmp = dp[j];
-      dp[j] =
-        a[i - 1] === b[j - 1]
-          ? prev
-          : 1 + Math.min(prev, dp[j], dp[j - 1]);
-      prev = tmp;
-    }
-  }
-  return dp[n];
+function isEffectivelyUnclear(value: string): boolean {
+  return value.replace(/\[UNCLEAR\]/gi, "").trim().length === 0;
 }
 
-function textSimilarity(a: string, b: string): number {
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen === 0) return 1;
-  return 1 - levenshtein(a, b) / maxLen;
+function wordOverlapSimilarity(canonical: string, extracted: string): number {
+  const tokenize = (s: string) =>
+    new Set(
+      s
+        .split(/\s+/)
+        .map((w) => w.replace(/[^a-z0-9]/g, ""))
+        .filter((w) => w.length > 0),
+    );
+  const canonicalWords = tokenize(canonical);
+  const extractedWords = tokenize(extracted);
+  if (canonicalWords.size === 0) return 1;
+  let matches = 0;
+  for (const w of canonicalWords) {
+    if (extractedWords.has(w)) matches++;
+  }
+  return matches / canonicalWords.size;
 }
 
 function validateGovernmentWarning(foundValue: string | null): {
   status: FieldStatus;
   notes: string;
 } {
-  if (!foundValue) {
+  if (!foundValue || isEffectivelyUnclear(foundValue)) {
     return {
-      status: "not_found",
-      notes: "Government warning not detected on label.",
+      status: "fail",
+      notes: "Government warning statement not found on label.",
     };
   }
 
-  // Check 1: all-caps header present (case-sensitive)
+  // Check 1: all-caps header (case-sensitive exact match)
   if (!foundValue.includes(GW_HEADER)) {
     if (foundValue.toLowerCase().includes("government warning:")) {
       return {
-        status: "fail",
-        notes:
-          `Header found but not in all caps. Required exact string: "${GW_HEADER}" (27 CFR 16.21).`,
+        status: "warning",
+        notes: `Header must appear as "${GW_HEADER}" in all caps per 27 CFR 16.21.`,
       };
     }
     return {
       status: "fail",
-      notes: `"${GW_HEADER}" header is missing from the extracted text (27 CFR 16.21).`,
+      notes: "Government warning statement not found on label.",
     };
   }
 
-  // Check 2: statutory body text similarity
+  // Check 2: statutory body text — word-overlap similarity
   const bodyStart = foundValue.indexOf(GW_HEADER) + GW_HEADER.length;
   const extractedBody = normalizeText(foundValue.slice(bodyStart));
-  const similarity = textSimilarity(extractedBody, GW_STATUTORY_BODY);
+  const similarity = wordOverlapSimilarity(GW_STATUTORY_BODY, extractedBody);
   const pct = Math.round(similarity * 100);
 
-  if (similarity >= 0.95) {
+  if (similarity >= 0.9) {
     return {
       status: "pass",
-      notes: `Header and statutory text verified (${pct}% match).`,
+      notes: `Header and statutory text verified (${pct}% word match).`,
     };
   }
-  if (similarity >= 0.8) {
+  if (similarity >= 0.7) {
     return {
       status: "warning",
-      notes:
-        `Header correct but statutory body text may contain OCR errors (${pct}% match). Recommend manual review (27 CFR 16.21).`,
+      notes: `Warning text may have OCR errors or minor deviations (${pct}% word match) — agent should visually verify.`,
     };
   }
   return {
     status: "fail",
-    notes:
-      `Statutory text substantially incorrect (${pct}% match). Required text per 27 CFR 16.21 differs significantly from what was extracted.`,
+    notes: `Warning text does not match statutory requirement (${pct}% word match).`,
   };
 }
 
@@ -131,110 +167,110 @@ function applyProgrammaticChecks(
 }
 
 // ---------------------------------------------------------------------------
+// System prompt (Parts 1 & 3)
+// ---------------------------------------------------------------------------
 
-const PROMPT_BASE = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance verifier.
+const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance analyst. Your job is to extract field values from alcohol beverage label images with high accuracy.
 
-Analyze the provided label image. If optional application data is provided, compare it against the extracted label text. If application data is not provided for a field, extract the label value and set expectedValue to null. Return ONLY valid JSON — no prose, no markdown, no code fences, no backticks.
+EXTRACTION RULES:
+- Extract text exactly as it appears — preserve capitalization, punctuation, and spacing character by character
+- If a word or phrase is unclear due to image angle, glare, or degradation, write [UNCLEAR] in place of that portion — do NOT guess or substitute a word you think should be there
+- Never correct what you see to match what you expect — extract what is visually present, even if it seems like a typo or partial word
+- If a field is not visible on this label face at all, set extracted to null
 
-Response schema:
+GOVERNMENT WARNING FIELD RULES:
+- Extract the complete warning text verbatim, starting from the header
+- The header is typically "GOVERNMENT WARNING:" — copy whatever casing you see exactly, character by character
+- The body text refers to the Surgeon General, pregnancy and birth defects, and driving or operating machinery — extract verbatim, do not paraphrase
+- If the label is angled and some warning text is partially cut off or illegible, extract what you can and append [UNCLEAR] for the rest
+- Do NOT evaluate whether the warning meets formatting requirements — extract only; compliance checking happens separately
+
+IMAGE QUALITY:
+Labels photographed at angles, with glare, or in low light are common.
+Extract the best reading you can. Use "low" confidence for any field where you had difficulty reading the text, and note why briefly.
+
+Return only valid JSON. No explanation text, no markdown fences.`;
+
+const SYSTEM_PROMPT_STRICT =
+  SYSTEM_PROMPT +
+  "\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.";
+
+// ---------------------------------------------------------------------------
+// User message template (Part 2)
+// ---------------------------------------------------------------------------
+
+function buildUserMessage(application: LabelApplicationInput): string {
+  const hasAppData = Object.keys(application).length > 0;
+
+  return `Analyze this alcohol beverage label image and extract all visible fields.
+
+${
+  hasAppData
+    ? `APPLICATION DATA (COLA filing):
+Compare your extracted values against these application-provided values:
+  Brand Name:        ${application.brandName || "Not provided"}
+  Class / Type:      ${application.classType || "Not provided"}
+  Alcohol Content:   ${application.alcoholContent || "Not provided"}
+  Net Contents:      ${application.netContents || "Not provided"}
+  Producer Name:     ${application.producerName || "Not provided"}
+  Producer Address:  ${application.producerAddress || "Not provided"}
+  Country of Origin: ${application.countryOfOrigin || "Not provided"}
+`
+    : "No application data provided. Extract fields only."
+}
+
+Return this exact JSON structure — no other text:
+
 {
-  "overallStatus": "pass" | "warning" | "fail",
   "fields": [
     {
-      "fieldName": string,
-      "expectedValue": string | null,
-      "foundValue": string | null,
-      "status": "pass" | "warning" | "fail" | "not_found",
-      "notes": string
+      "field": "brand_name",
+      "extracted": "<verbatim text from label, or null>",
+      "confidence": "high | medium | low | not_visible",
+      "application": "<app value or null>",
+      "status": "pass | warning | fail | extracted",
+      "notes": "<plain-language explanation for any warning or fail>"
     }
-  ]
+  ],
+  "image_quality": "good | angled | degraded | angled_degraded",
+  "image_notes": "<brief note on any quality issues that affected extraction>"
 }
 
-FIELD VERIFICATION RULES:
+Extract these fields in order:
+1. brand_name
+2. class_type
+3. alcohol_content
+4. net_contents
+5. producer_name
+6. producer_address
+7. country_of_origin
+8. government_warning  ← extract verbatim only, no compliance judgment
 
-brandName: Case-insensitive exact match → "pass". Same name with different case or stylization → "warning". Different name → "fail".
-
-alcoholContent: Compare numeric value only. "45%", "45% Alc./Vol.", and "45% Alc./Vol. (90 Proof)" are all equivalent. Fail only on numeric mismatch.
-
-governmentWarning: Extract the complete government warning text verbatim as it appears on the label. Do not evaluate capitalization, formatting, or compliance — format validation is handled by backend code. If the warning is entirely absent from the label set status to "not_found". Otherwise set status to "pass" and report the full extracted text in foundValue.
-
-All other fields (netContents, classType, producerName, producerAddress, countryOfOrigin, appellation, vintageYear): Exact or functionally equivalent match → "pass". Minor formatting differences → "warning". Missing or clearly different → "fail". If no application value is provided, report the extracted label value with expectedValue null and status "warning" only when the field needs agent review or a mandatory requirement appears missing.
-
-IMAGE QUALITY: If a field is affected by glare, angle, or blur, set status to "warning" and note the quality issue in notes.
-
-NEVER infer or guess field values. If you cannot clearly read a value → "not_found" with an explanation in notes.`;
-
-const PROMPT_FOOTER = `
-
-OVERALL STATUS:
-- "pass" — all fields are "pass"
-- "warning" — any field is "warning" (no fields are "fail" or "not_found")
-- "fail" — any field is "fail" or "not_found"`;
-
-function buildRequirementsBlock(
-  beverageType?: LabelApplication["beverageType"],
-): string {
-  if (!beverageType) {
-    return `
-
-TTB MANDATORY REQUIREMENTS:
-Identify the beverage type from the label when possible. Verify mandatory fields visible on the label, including brandName, classType or product identity, alcoholContent where required, netContents, producerName, producerAddress, and governmentWarning. If a beverage-specific rule cannot be determined from the image, set the affected field to "warning" and explain what needs agent review.
-
-CFR CITATIONS:
-Include the applicable CFR citation in the notes field of any FieldResult where a violation is found when you can determine it from the label context.`;
-  }
-
-  const reqs = TTB_REQUIREMENTS[beverageType];
-  const label = beverageType.replace(/_/g, " ").toUpperCase();
-
-  const alwaysRequired = reqs.alwaysRequired.join(", ");
-
-  const conditionalLines = reqs.conditional
-    .map((c) => `- ${c.field}: required if ${c.condition}`)
-    .join("\n");
-
-  let beverageSpecific = "";
-
-  if (beverageType === "distilled_spirits") {
-    beverageSpecific = `
-SAME FIELD OF VISION (${CFR_CITATIONS.sameFieldOfVision.spirits}):
-brandName, classType, and alcoholContent must all be simultaneously visible on one panel without rotating the container. If any of these three fields appears on a different panel, set that field's status to "fail" and include "(${CFR_CITATIONS.sameFieldOfVision.spirits})" in its notes.`;
-  }
-
-  if (beverageType === "beer") {
-    beverageSpecific = `
-ALCOHOL CONTENT FOR BEER:
-alcoholContent is NOT always required for beer. Only flag it missing if the label shows evidence of added flavors or non-beverage ingredients (e.g., "with natural flavors", "flavored malt beverage", "with fruit juice"). If no such evidence is present and alcoholContent is absent from the label, do not penalize.`;
-  }
-
-  return `
-
-TTB MANDATORY REQUIREMENTS — ${label}:
-Always required: ${alwaysRequired}
-${beverageSpecific}
-CONDITIONAL FIELDS (only flag missing if the condition applies):
-${conditionalLines}
-
-CFR CITATIONS:
-Include the applicable CFR citation in the notes field of any FieldResult where a violation is found. Examples: "ABV missing (${CFR_CITATIONS.alcoholContent.spirits})", "Government warning text incorrect (${CFR_CITATIONS.governmentWarning.all})".`;
+STATUS RULES (only apply when application data is provided for that field):
+- pass:      extracted matches application value (semantically equivalent)
+- warning:   minor difference — abbreviation, punctuation, or level of specificity — always explain in notes
+- fail:      clear mismatch, or a mandatory field is entirely absent
+- extracted: no application value was provided for this field`;
 }
 
-function buildSystemPrompt(
-  beverageType?: LabelApplication["beverageType"],
-): string {
-  return PROMPT_BASE + buildRequirementsBlock(beverageType) + PROMPT_FOOTER;
+// ---------------------------------------------------------------------------
+// Response mapping: Claude format → VerificationResult
+// ---------------------------------------------------------------------------
+
+function mapClaudeField(cf: z.infer<typeof ClaudeFieldSchema>): FieldResult {
+  return {
+    fieldName: FIELD_NAME_MAP[cf.field] ?? cf.field,
+    foundValue: cf.extracted,
+    expectedValue: cf.application,
+    // "extracted" means no comparison was requested — treat as pass
+    status: cf.status === "extracted" ? "pass" : cf.status,
+    notes: cf.notes ?? "",
+  };
 }
 
-function buildStrictSystemPrompt(
-  beverageType?: LabelApplication["beverageType"],
-): string {
-  return (
-    buildSystemPrompt(beverageType) +
-    `
-
-CRITICAL: Your previous response was not valid JSON matching the required schema. Return ONLY a raw JSON object. The response must begin with { and end with }. No text before or after the JSON.`
-  );
-}
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 
 export function deriveOverallStatus(fields: FieldResult[]): OverallStatus {
   if (fields.some((f) => f.status === "fail" || f.status === "not_found"))
@@ -247,12 +283,23 @@ export function tryParse(raw: string): VerificationResult | null {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) return null;
   try {
-    const result = VerificationResultSchema.safeParse(JSON.parse(match[0]));
-    return result.success ? result.data : null;
+    const validated = ClaudeResponseSchema.safeParse(JSON.parse(match[0]));
+    if (!validated.success) return null;
+    const { data } = validated;
+    return {
+      overallStatus: "pass", // recalculated by verifyLabel after programmatic checks
+      fields: data.fields.map(mapClaudeField),
+      imageQuality: data.image_quality,
+      imageNotes: data.image_notes,
+    };
   } catch {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
 
 export async function verifyLabel(
   imageBase64: string,
@@ -261,13 +308,13 @@ export async function verifyLabel(
   signal?: AbortSignal,
 ): Promise<VerificationResult> {
   const start = Date.now();
-  const systemPrompt = buildSystemPrompt(application.beverageType);
+  const userMessage = buildUserMessage(application);
 
   const raw = await callClaudeVision(
     imageBase64,
     mediaType,
-    application,
-    systemPrompt,
+    userMessage,
+    SYSTEM_PROMPT,
     signal,
   );
 
@@ -290,8 +337,8 @@ export async function verifyLabel(
   const rawRetry = await callClaudeVision(
     imageBase64,
     mediaType,
-    application,
-    buildStrictSystemPrompt(application.beverageType),
+    userMessage,
+    SYSTEM_PROMPT_STRICT,
     signal,
   );
   const parsedRetry = tryParse(rawRetry);

@@ -14,17 +14,20 @@ function field(status: FieldResult["status"]): FieldResult {
   };
 }
 
-const validResult = {
-  overallStatus: "pass" as const,
+// Matches the Claude response schema (new format)
+const validClaudeResponse = {
   fields: [
     {
-      fieldName: "brandName",
-      expectedValue: "Acme",
-      foundValue: "Acme",
-      status: "pass" as const,
+      field: "brand_name",
+      extracted: "Acme",
+      confidence: "high",
+      application: "Acme",
+      status: "pass",
       notes: "",
     },
   ],
+  image_quality: "good",
+  image_notes: "",
 };
 
 describe("deriveOverallStatus", () => {
@@ -56,24 +59,26 @@ describe("deriveOverallStatus", () => {
 });
 
 describe("tryParse", () => {
-  test("clean JSON → VerificationResult", () => {
-    const result = tryParse(JSON.stringify(validResult));
+  test("clean Claude JSON → VerificationResult with mapped field names", () => {
+    const result = tryParse(JSON.stringify(validClaudeResponse));
     assert.ok(result);
-    assert.equal(result.overallStatus, "pass");
     assert.equal(result.fields.length, 1);
+    assert.equal(result.fields[0].fieldName, "brandName");
+    assert.equal(result.fields[0].foundValue, "Acme");
+    assert.equal(result.fields[0].status, "pass");
   });
 
   test("JSON wrapped in prose → extracted", () => {
     const result = tryParse(
-      `Here is the analysis:\n${JSON.stringify(validResult)}\nHope that helps.`,
+      `Here is the analysis:\n${JSON.stringify(validClaudeResponse)}\nHope that helps.`,
     );
     assert.ok(result);
-    assert.equal(result.overallStatus, "pass");
+    assert.equal(result.fields.length, 1);
   });
 
   test("JSON in markdown code fence → extracted", () => {
     const result = tryParse(
-      "```json\n" + JSON.stringify(validResult) + "\n```",
+      "```json\n" + JSON.stringify(validClaudeResponse) + "\n```",
     );
     assert.ok(result);
   });
@@ -88,16 +93,42 @@ describe("tryParse", () => {
 
   test("empty fields array violates min(1) → null", () => {
     assert.equal(
-      tryParse(JSON.stringify({ ...validResult, fields: [] })),
+      tryParse(JSON.stringify({ ...validClaudeResponse, fields: [] })),
       null,
     );
   });
 
-  test("invalid overallStatus value → null", () => {
-    assert.equal(
-      tryParse(JSON.stringify({ ...validResult, overallStatus: "approved" })),
-      null,
+  test("invalid field status value → null", () => {
+    const bad = {
+      ...validClaudeResponse,
+      fields: [{ ...validClaudeResponse.fields[0], status: "approved" }],
+    };
+    assert.equal(tryParse(JSON.stringify(bad)), null);
+  });
+
+  test("extracted status maps to pass", () => {
+    const extracted = {
+      ...validClaudeResponse,
+      fields: [
+        {
+          ...validClaudeResponse.fields[0],
+          status: "extracted",
+          application: null,
+        },
+      ],
+    };
+    const result = tryParse(JSON.stringify(extracted));
+    assert.ok(result);
+    assert.equal(result.fields[0].status, "pass");
+    assert.equal(result.fields[0].expectedValue, null);
+  });
+
+  test("image_quality propagated to result", () => {
+    const result = tryParse(
+      JSON.stringify({ ...validClaudeResponse, image_quality: "angled" }),
     );
+    assert.ok(result);
+    assert.equal(result.imageQuality, "angled");
   });
 });
 

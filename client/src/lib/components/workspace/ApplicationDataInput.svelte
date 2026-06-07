@@ -83,28 +83,28 @@
             id="application-data-title"
             class="inline-flex items-center gap-2 text-base font-semibold text-gray-950"
         >
-            {#if blankState}
+            <!-- {#if blankState}
                 <FileTextIcon size={20} className="text-blue-700" />
                 <span class="font-bold text-blue-700">Step 2</span>
                 <span
                     class="h-1 w-1 rounded-full bg-blue-700"
                     aria-hidden="true"
                 ></span>
-            {/if}
+            {/if} -->
             Application Data
-            {#if blankState}
+            <!-- {#if blankState}
                 <span
                     class="rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-semibold text-gray-600"
                 >
                     Optional
                 </span>
-            {/if}
+            {/if} -->
         </h3>
-        <p class="max-w-xl text-sm text-gray-500 lg:text-right">
+        <!-- <p class="max-w-xl text-sm text-gray-500 lg:text-right">
             {blankState
                 ? 'Can be added before or after upload.'
                 : 'Paste COLA application values to compare against extracted label fields'}
-        </p>
+        </p> -->
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col space-y-3 p-4">

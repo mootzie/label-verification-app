@@ -1,10 +1,7 @@
 <script lang="ts">
     import { Badge } from '$lib/components/ui/badge'
     import { Button } from '$lib/components/ui/button'
-    import {
-        formatFieldName,
-        STATUS_LABEL,
-    } from '$lib/utils/compliance-logic'
+    import { formatFieldName, STATUS_LABEL } from '$lib/utils/compliance-logic'
     import type {
         ReviewDecision,
         ReviewDecisions,

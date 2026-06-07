@@ -622,7 +622,7 @@
 
                 <div class="flex min-h-0 min-w-0 flex-col gap-4">
                     <section
-                        class="rounded-md border border-gray-200 bg-white shadow-sm"
+                        class="rounded-md border border-gray-200 bg-white shadow-sm pb-4"
                     >
                         <div class="min-w-0 border-b border-gray-200 p-4">
                             <h2
@@ -706,12 +706,12 @@
                             </div>
                         </div>
 
-                        <div
+                        <!-- <div
                             class="mx-4 mb-4 mt-5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
                         >
                             <InfoIcon size={18} className="shrink-0" />
                             Uploading a label starts the review workflow.
-                        </div>
+                        </div> -->
                     </section>
 
                     <!-- Optional: paste application data before upload -->

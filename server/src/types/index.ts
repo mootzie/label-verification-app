@@ -15,6 +15,8 @@ export interface VerificationResult {
   fields: FieldResult[];
   processingTimeMs?: number;
   labelId?: string;
+  imageQuality?: "good" | "angled" | "degraded" | "angled_degraded";
+  imageNotes?: string;
 }
 
 export interface LabelApplication {

@@ -245,10 +245,10 @@
                 class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
             >
                 <div class="flex min-w-0 items-center gap-2">
-                    <QueueIcon
+                    <!-- <QueueIcon
                         size={20}
                         className="shrink-0 text-muted-foreground"
-                    />
+                    /> -->
                     <CardTitle class="text-base font-bold text-gray-950">
                         Review Queue
                     </CardTitle>
