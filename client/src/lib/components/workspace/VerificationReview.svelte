@@ -16,6 +16,7 @@
         BeverageFieldDef,
         BeverageType,
     } from '$lib/utils/beverage-fields'
+    import ApplicationDataSummaryDrawer from './ApplicationDataSummaryDrawer.svelte'
 
     let {
         result,
@@ -24,6 +25,21 @@
         error,
         mode = 'body',
         beverageType = 'distilled_spirits' as BeverageType,
+        brandName = '',
+        producerName = '',
+        classType = '',
+        producerAddress = '',
+        countryOfOrigin = '',
+        alcoholContent = '',
+        netContents = '',
+        appellation = '',
+        ageStatement = '',
+        colorDisclosures = '',
+        commodityStatement = '',
+        sulfiteDeclaration = '',
+        foreignWinePct = '',
+        colorAdditives = '',
+        aspartameDeclaration = '',
         onSelectedFieldChange,
         onExport,
         onMarkAllReviewed,
@@ -34,6 +50,21 @@
         error: string | null
         mode?: 'banner' | 'body'
         beverageType?: BeverageType
+        brandName?: string
+        producerName?: string
+        classType?: string
+        producerAddress?: string
+        countryOfOrigin?: string
+        alcoholContent?: string
+        netContents?: string
+        appellation?: string
+        ageStatement?: string
+        colorDisclosures?: string
+        commodityStatement?: string
+        sulfiteDeclaration?: string
+        foreignWinePct?: string
+        colorAdditives?: string
+        aspartameDeclaration?: string
         onSelectedFieldChange?: (fieldName: string | null) => void
         onExport?: (decisions: ReviewDecisions) => void
         onMarkAllReviewed?: (decisions: ReviewDecisions) => void
@@ -108,6 +139,12 @@
     })
 
     let issueFields = $derived(visibleFields.filter((f) => f.status !== 'pass'))
+    let statusCounts = $derived.by(() => ({
+        pass: visibleFields.filter((f) => f.status === 'pass').length,
+        warning: visibleFields.filter((f) => f.status === 'warning').length,
+        fail: visibleFields.filter((f) => f.status === 'fail').length,
+        notFound: visibleFields.filter((f) => f.status === 'not_found').length,
+    }))
 
     let isExtractionOnly = $derived(
         result !== null &&
@@ -281,6 +318,7 @@
     }
 
     function statusGlyph(status: FieldStatus) {
+        if (isExtractionOnly) return '—'
         if (status === 'pass') return '✓'
         if (status === 'warning') return '!'
         if (status === 'fail') return '×'
@@ -288,6 +326,7 @@
     }
 
     function statusAccentClass(field: FieldResult) {
+        if (isExtractionOnly) return 'bg-gray-400'
         if (isOptionalNotFound(field)) return 'bg-gray-400'
         if (field.status === 'pass') return 'bg-green-500'
         if (field.status === 'warning') return 'bg-amber-500'
@@ -296,6 +335,7 @@
     }
 
     function statusAccentColor(field: FieldResult) {
+        if (isExtractionOnly) return '#9ca3af'
         if (isOptionalNotFound(field)) return '#9ca3af'
         if (field.status === 'pass') return '#22c55e'
         if (field.status === 'warning') return '#f59e0b'
@@ -306,6 +346,33 @@
     function displayValue(value: string | null | undefined) {
         const trimmed = value?.trim()
         return trimmed ? trimmed : 'Not found'
+    }
+
+    function tableSummary() {
+        if (isExtractionOnly)
+            return `${visibleFields.length} extracted fields · not compared`
+        const parts = [
+            `${statusCounts.warning} warning${statusCounts.warning === 1 ? '' : 's'}`,
+            `${statusCounts.fail} failure${statusCounts.fail === 1 ? '' : 's'}`,
+            `${statusCounts.pass} pass${statusCounts.pass === 1 ? '' : 'es'}`,
+        ]
+        if (statusCounts.notFound > 0) {
+            parts.push(
+                `${statusCounts.notFound} not found`
+            )
+        }
+        return parts.join(' · ')
+    }
+
+    function rowStatusLabel(field: FieldResult) {
+        if (isExtractionOnly) return 'Not compared'
+        if (isOptionalNotFound(field)) return 'N/A'
+        return STATUS_LABEL[field.status]
+    }
+
+    function rowStatusVariant(field: FieldResult) {
+        if (isExtractionOnly || isOptionalNotFound(field)) return 'not_found'
+        return field.status
     }
 
     function compactValue(value: string | null | undefined) {
@@ -350,6 +417,36 @@
         return (value ?? '').replace(/\s+/g, ' ').trim()
     }
 
+    function governmentWarningHeaderLabel(value: string | null | undefined) {
+        const normalized = normalizedWarning(value)
+        if (!normalized) return 'Not found'
+        if (normalized.startsWith('GOVERNMENT WARNING:')) return 'Exact header'
+        if (normalized.toLowerCase().startsWith('government warning:'))
+            return 'Header case issue'
+        return 'Header not found'
+    }
+
+    function governmentWarningHeaderClass(value: string | null | undefined) {
+        const label = governmentWarningHeaderLabel(value)
+        if (label === 'Exact header') return 'bg-green-100 text-green-800'
+        if (label === 'Header case issue') return 'bg-amber-100 text-amber-800'
+        return 'bg-red-100 text-red-800'
+    }
+
+    function governmentWarningTextLabel(value: string | null | undefined) {
+        if (!normalizedWarning(value)) return 'Text not found'
+        return normalizedWarning(value) ===
+            normalizedWarning(GOVERNMENT_WARNING_REQUIRED)
+            ? 'Exact wording'
+            : 'Wording differs'
+    }
+
+    function governmentWarningTextClass(value: string | null | undefined) {
+        return governmentWarningTextLabel(value) === 'Exact wording'
+            ? 'bg-green-100 text-green-800'
+            : 'bg-red-100 text-red-800'
+    }
+
     // True when a field is optional (if_applicable / imports_only) and absent —
     // should show "N/A" rather than a fail/not_found badge.
     function isOptionalNotFound(field: FieldResult): boolean {
@@ -363,12 +460,14 @@
         )
     }
 
-    // function showGovernmentDetails() {
-    //     return (
-    //         selectedField?.fieldName === 'governmentWarning' ||
-    //         (governmentWarning !== null && governmentWarning.status !== 'pass')
-    //     )
-    // }
+    function showGovernmentDetails(field: FieldResult) {
+        return (
+            field.fieldName === 'governmentWarning' ||
+            (governmentWarning !== null &&
+                governmentWarning.status !== 'pass' &&
+                selectedField?.fieldName === field.fieldName)
+        )
+    }
 </script>
 
 {#if mode === 'banner'}
@@ -395,7 +494,14 @@
                                 {formatFieldName(issue.fieldName)}
                             </Badge>
                         {/each}
-                        {#if issueFields.length === 0}
+                        {#if isExtractionOnly}
+                            <Badge
+                                variant="not_found"
+                                class="border-0 px-2 py-0.5 text-[11px]"
+                            >
+                                Not compared
+                            </Badge>
+                        {:else if issueFields.length === 0}
                             <Badge
                                 variant="pass"
                                 class="border-0 px-2 py-0.5 text-[11px]"
@@ -457,7 +563,11 @@
                 </h2>
 
                 <p class="text-[11px] font-medium text-gray-500">
-                    Expand rows to edit values and record review action
+                    {#if result}
+                        {tableSummary()}
+                    {:else}
+                        Results appear after verification
+                    {/if}
                 </p>
             </div>
             <Button
@@ -470,6 +580,26 @@
         </div>
 
         {#if result}
+            <ApplicationDataSummaryDrawer
+                {brandName}
+                {producerName}
+                {beverageType}
+                {classType}
+                {producerAddress}
+                {countryOfOrigin}
+                {alcoholContent}
+                {netContents}
+                {appellation}
+                {ageStatement}
+                {colorDisclosures}
+                {commodityStatement}
+                {sulfiteDeclaration}
+                {foreignWinePct}
+                {colorAdditives}
+                {aspartameDeclaration}
+                fields={visibleFields}
+                extractionOnly={isExtractionOnly}
+            />
             {#if comparing}
                 <div
                     class="flex shrink-0 items-center gap-2 border-b border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700"
@@ -665,7 +795,7 @@
                                     </td>
                                     <td class="px-3 py-1.5 align-middle">
                                         <div class="flex items-center">
-                                            {#if isOptionalNotFound(field)}
+                                            {#if !isExtractionOnly && isOptionalNotFound(field)}
                                                 <span
                                                     class="inline-flex h-6 w-20 items-center justify-center rounded-full border border-gray-200 bg-gray-100 px-2 text-[11px] font-medium text-gray-500"
                                                 >
@@ -673,15 +803,17 @@
                                                 </span>
                                             {:else}
                                                 <Badge
-                                                    variant={field.status}
-                                                    class="h-6 w-20 justify-center gap-1 border-0 px-2 text-[11px]"
+                                                    variant={rowStatusVariant(
+                                                        field
+                                                    )}
+                                                    class="h-6 w-24 justify-center gap-1 border-0 px-2 text-[11px]"
                                                 >
                                                     <span aria-hidden="true"
                                                         >{statusGlyph(
                                                             field.status
                                                         )}</span
                                                     >
-                                                    {STATUS_LABEL[field.status]}
+                                                    {rowStatusLabel(field)}
                                                 </Badge>
                                             {/if}
                                             {#if decisionFor(field.fieldName) !== 'unreviewed'}
@@ -827,33 +959,91 @@
                                                     >
                                                 </div>
                                             </div>
-                                            <!-- {#if field.fieldName === 'governmentWarning' || (governmentWarning !== null && governmentWarning.status !== 'pass')}
+                                            {#if showGovernmentDetails(field)}
                                                 <div
-                                                    class="mt-2 grid gap-2 border-t border-gray-200 pt-2 lg:grid-cols-2"
+                                                    class="mt-3 rounded-md border border-gray-300 bg-white p-3 shadow-sm"
                                                 >
-                                                    <p
-                                                        class="line-clamp-2 text-[11px] leading-4 text-gray-800"
+                                                    <div
+                                                        class="mb-3 flex flex-col gap-2 border-b border-gray-100 pb-3 lg:flex-row lg:items-center lg:justify-between"
                                                     >
-                                                        <span
-                                                            class="font-bold uppercase text-gray-500"
-                                                            >Detected:</span
+                                                        <div class="min-w-0">
+                                                            <h3
+                                                                class="text-xs font-bold text-gray-950"
+                                                            >
+                                                                Government
+                                                                warning check
+                                                            </h3>
+                                                            <p
+                                                                class="mt-0.5 text-[11px] font-medium text-gray-600"
+                                                            >
+                                                                Required header
+                                                                and statutory
+                                                                wording per 27
+                                                                CFR Part 16.
+                                                            </p>
+                                                        </div>
+                                                        <div
+                                                            class="flex shrink-0 flex-wrap gap-1.5"
                                                         >
-                                                        {normalizedWarning(
-                                                            governmentWarning?.foundValue
-                                                        ) ||
-                                                            'Not found on label'}
-                                                    </p>
-                                                    <p
-                                                        class="line-clamp-2 text-[11px] leading-4 text-gray-800"
+                                                            <span
+                                                                class="rounded px-2 py-1 text-[11px] font-bold {governmentWarningHeaderClass(
+                                                                    governmentWarning?.foundValue
+                                                                )}"
+                                                            >
+                                                                {governmentWarningHeaderLabel(
+                                                                    governmentWarning?.foundValue
+                                                                )}
+                                                            </span>
+                                                            <span
+                                                                class="rounded px-2 py-1 text-[11px] font-bold {governmentWarningTextClass(
+                                                                    governmentWarning?.foundValue
+                                                                )}"
+                                                            >
+                                                                {governmentWarningTextLabel(
+                                                                    governmentWarning?.foundValue
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        class="grid gap-3 lg:grid-cols-2"
                                                     >
-                                                        <span
-                                                            class="font-bold uppercase text-gray-500"
-                                                            >Required:</span
+                                                        <div
+                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3"
                                                         >
-                                                        {GOVERNMENT_WARNING_REQUIRED}
-                                                    </p>
+                                                            <p
+                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500"
+                                                            >
+                                                                Detected on
+                                                                label
+                                                            </p>
+                                                            <p
+                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900"
+                                                            >
+                                                                {normalizedWarning(
+                                                                    governmentWarning?.foundValue
+                                                                ) ||
+                                                                    'Not found on label'}
+                                                            </p>
+                                                        </div>
+                                                        <div
+                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3"
+                                                        >
+                                                            <p
+                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500"
+                                                            >
+                                                                Required text
+                                                            </p>
+                                                            <p
+                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900"
+                                                            >
+                                                                {GOVERNMENT_WARNING_REQUIRED}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            {/if} -->
+                                            {/if}
                                         </td>
                                     </tr>
                                 {/if}
