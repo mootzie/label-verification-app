@@ -24,11 +24,11 @@ export const REQUIREMENT_BADGE: Record<
 }
 
 // ── Field definition ─────────────────────────────────────────────────────────
-// key:       snake_case — used in the backend field list and FIELD_NAME_MAP
-// resultKey: camelCase — the fieldName Claude returns in VerificationResult
+// key:       snake_case - used in the backend field list and FIELD_NAME_MAP
+// resultKey: camelCase - the fieldName Claude returns in VerificationResult
 // formKey:   identifies which bound state variable(s) this field maps to in the form
 //            'name_address' renders producerName + producerAddress as a pair
-//            'health_warning' is extracted/verified only — no form input
+//            'health_warning' is extracted/verified only - no form input
 export interface BeverageFieldDef {
     key: string
     resultKey: string
@@ -36,21 +36,21 @@ export interface BeverageFieldDef {
     requirement: FieldRequirement
     hint?: string
     formKey:
-        | 'brandName'
-        | 'classType'
-        | 'alcoholContent'
-        | 'netContents'
-        | 'name_address'
-        | 'health_warning'
-        | 'ageStatement'
-        | 'colorDisclosures'
-        | 'commodityStatement'
-        | 'countryOfOrigin'
-        | 'appellation'
-        | 'sulfiteDeclaration'
-        | 'foreignWinePct'
-        | 'colorAdditives'
-        | 'aspartameDeclaration'
+    | 'brandName'
+    | 'classType'
+    | 'alcoholContent'
+    | 'netContents'
+    | 'name_address'
+    | 'health_warning'
+    | 'ageStatement'
+    | 'colorDisclosures'
+    | 'commodityStatement'
+    | 'countryOfOrigin'
+    | 'appellation'
+    | 'sulfiteDeclaration'
+    | 'foreignWinePct'
+    | 'colorAdditives'
+    | 'aspartameDeclaration'
 }
 
 // ── Class / Type dropdown options ────────────────────────────────────────────
@@ -122,7 +122,7 @@ export const CLASS_TYPE_OPTIONS: Record<BeverageType, string[]> = {
 // ── Field sets per beverage type ─────────────────────────────────────────────
 
 export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
-    // 27 CFR Part 5 — Same-field-of-vision requirement: brand_name,
+    // 27 CFR Part 5 - Same-field-of-vision requirement: brand_name,
     // class_type, alcohol_content must all be visible simultaneously.
     distilled_spirits: [
         {
@@ -167,7 +167,7 @@ export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
             resultKey: 'governmentWarning',
             label: 'Health Warning Statement',
             requirement: 'required',
-            hint: '"GOVERNMENT WARNING" in bold caps — exact statutory wording per 27 CFR Part 16',
+            hint: '"GOVERNMENT WARNING" in bold caps - exact statutory wording per 27 CFR Part 16',
             formKey: 'health_warning',
         },
         {
@@ -203,7 +203,7 @@ export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
         },
     ],
 
-    // 27 CFR Part 4 — Brand label items vs. any-label items
+    // 27 CFR Part 4 - Brand label items vs. any-label items
     wine: [
         {
             key: 'brand_name',
@@ -247,7 +247,7 @@ export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
             resultKey: 'governmentWarning',
             label: 'Health Warning Statement',
             requirement: 'required',
-            hint: '"GOVERNMENT WARNING" in bold caps — exact statutory wording per 27 CFR Part 16',
+            hint: '"GOVERNMENT WARNING" in bold caps - exact statutory wording per 27 CFR Part 16',
             formKey: 'health_warning',
         },
         {
@@ -291,7 +291,7 @@ export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
         },
     ],
 
-    // 27 CFR Part 7 — No same-field-of-vision requirement
+    // 27 CFR Part 7 - No same-field-of-vision requirement
     beer: [
         {
             key: 'brand_name',
@@ -327,7 +327,7 @@ export const BEVERAGE_FIELD_SETS: Record<BeverageType, BeverageFieldDef[]> = {
             resultKey: 'governmentWarning',
             label: 'Health Warning Statement',
             requirement: 'required',
-            hint: '"GOVERNMENT WARNING" in bold caps — exact statutory wording per 27 CFR Part 16',
+            hint: '"GOVERNMENT WARNING" in bold caps - exact statutory wording per 27 CFR Part 16',
             formKey: 'health_warning',
         },
         {

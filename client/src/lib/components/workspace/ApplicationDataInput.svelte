@@ -220,9 +220,6 @@
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) tryParse()
     }
 
-    const inputCls =
-        'w-full rounded border border-gray-300 bg-white px-2.5 h-9 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors'
-
     let textarea = $state<HTMLTextAreaElement | null>(null)
 </script>
 
@@ -259,12 +256,12 @@
         <!-- Beverage type — controls which fields and class/type options are shown -->
         <label class="block">
             <span
-                class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                class="field-label">
                 <span>Beverage Type</span>
                 <span class="text-red-600" aria-hidden="true">*</span>
                 <span class="sr-only">Required</span>
             </span>
-            <select bind:value={beverageType} class={inputCls}>
+            <select bind:value={beverageType} class="form-input">
                 <option value="distilled_spirits">Distilled Spirits</option>
                 <option value="wine">Wine</option>
                 <option value="beer">Beer</option>
@@ -317,7 +314,7 @@
                     <!-- Renders as two adjacent cells in the 2-col grid -->
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                            class="field-label">
                             <span>Bottler / Producer Name</span>
                             <span class="text-red-600" aria-hidden="true">
                                 *
@@ -330,11 +327,11 @@
                             oninput={(e) =>
                                 (producerName = e.currentTarget.value)}
                             placeholder="e.g. Old Tom Distillery LLC"
-                            class={inputCls} />
+                            class="form-input" />
                     </label>
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                            class="field-label">
                             <span>Bottler / Producer Address</span>
                             <span class="text-red-600" aria-hidden="true">
                                 *
@@ -347,12 +344,12 @@
                             oninput={(e) =>
                                 (producerAddress = e.currentTarget.value)}
                             placeholder="e.g. Louisville, KY 40201"
-                            class={inputCls} />
+                            class="form-input" />
                     </label>
                 {:else if field.formKey === 'classType'}
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                            class="field-label">
                             <span>{field.label}</span>
                             {#if field.requirement === 'required'}
                                 <span class="text-red-600" aria-hidden="true">
@@ -367,7 +364,7 @@
                                 </span> -->
                             {/if}
                         </span>
-                        <select bind:value={classType} class={inputCls}>
+                        <select bind:value={classType} class="form-input">
                             <option value="">Select class / type…</option>
                             {#each classTypeOptions as opt}
                                 <option value={opt}>{opt}</option>
@@ -377,7 +374,7 @@
                 {:else}
                     <label class="block">
                         <span
-                            class="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600">
+                            class="field-label">
                             <span>{field.label}</span>
                             {#if field.requirement === 'required'}
                                 <span class="text-red-600" aria-hidden="true">
@@ -398,7 +395,7 @@
                             oninput={(e) =>
                                 setVal(field.formKey, e.currentTarget.value)}
                             placeholder={PLACEHOLDERS[field.formKey] ?? ''}
-                            class={inputCls} />
+                            class="form-input" />
                     </label>
                 {/if}
             {/each}

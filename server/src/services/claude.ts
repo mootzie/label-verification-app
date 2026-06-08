@@ -38,7 +38,7 @@ function tryExtractField(
   let searchPos = fromPos;
 
   while (true) {
-    // Find the field key — "field": (not "fields":, which has an 's' before the colon)
+    // Find the field key - "field": (not "fields":, which has an 's' before the colon)
     const keyPos = buffer.indexOf('"field":', searchPos);
     if (keyPos === -1) return null;
 
@@ -46,7 +46,7 @@ function tryExtractField(
     let braceIdx = keyPos - 1;
     while (braceIdx >= 0 && /\s/.test(buffer[braceIdx])) braceIdx--;
     if (braceIdx < 0 || buffer[braceIdx] !== "{") {
-      // Not a bare object opener — skip past this key and keep searching
+      // Not a bare object opener - skip past this key and keep searching
       searchPos = keyPos + 1;
       continue;
     }

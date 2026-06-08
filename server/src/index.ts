@@ -10,7 +10,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 if (!process.env.REDIS_URL) {
   console.warn(
-    "[startup] REDIS_URL is not set. Defaulting to redis://localhost:6379.",
+    "[startup] REDIS_URL is not set. Caching and batch processing are disabled.",
   );
 }
 
@@ -18,9 +18,10 @@ import app from "./app";
 import redis, { setBatchJob } from "./services/redis";
 import type { BatchJob } from "./types/index";
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 async function recoverStuckJobs(): Promise<void> {
+  if (!redis) return;
   const THIRTY_MINUTES = 30 * 60 * 1000;
   const cutoff = Date.now() - THIRTY_MINUTES;
   const jobKeys = await redis.keys("batch:job:*");

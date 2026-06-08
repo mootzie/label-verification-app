@@ -1,4 +1,4 @@
-// 27 CFR Part 16 — Alcoholic Beverage Labeling Act of 1988
+// 27 CFR Part 16 - Alcoholic Beverage Labeling Act of 1988
 // "GOVERNMENT WARNING:" must appear in capitals; the remainder follows sentence case.
 export const GOVERNMENT_WARNING =
   "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink " +

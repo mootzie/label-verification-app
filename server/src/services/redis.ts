@@ -9,12 +9,14 @@ import { VerificationResultSchema } from "./labelVerifier";
 
 const BATCH_TTL_SECONDS = 4 * 60 * 60; // 4 hours
 
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: 3,
-  lazyConnect: true,
-});
+const redis = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    })
+  : null;
 
-redis.on("error", (err) => console.error("[redis] connection error:", err));
+redis?.on("error", (err) => console.error("[redis] connection error:", err));
 
 const keys = {
   batchJob: (jobId: string) => `batch:job:${jobId}`,
@@ -77,6 +79,7 @@ const BatchJobSchema = z.object({
 });
 
 export async function setBatchJob(job: BatchJob): Promise<void> {
+  if (!redis) return;
   await redis.set(
     keys.batchJob(job.jobId),
     JSON.stringify(job),
@@ -86,6 +89,7 @@ export async function setBatchJob(job: BatchJob): Promise<void> {
 }
 
 export async function getBatchJob(jobId: string): Promise<BatchJob | null> {
+  if (!redis) return null;
   const raw = await redis.get(keys.batchJob(jobId));
   if (!raw) return null;
   let parsed: unknown;
@@ -107,6 +111,7 @@ export async function setLabelResult(
   labelId: string,
   result: VerificationResult,
 ): Promise<void> {
+  if (!redis) return;
   await redis.set(
     keys.labelResult(jobId, labelId),
     JSON.stringify(result),
@@ -119,6 +124,7 @@ export async function getLabelResult(
   jobId: string,
   labelId: string,
 ): Promise<VerificationResult | null> {
+  if (!redis) return null;
   const raw = await redis.get(keys.labelResult(jobId, labelId));
   if (!raw) return null;
   let parsed: unknown;
@@ -141,6 +147,7 @@ export async function updateBatchProgress(
   jobId: string,
   labelUpdate: BatchLabelItem,
 ): Promise<BatchJob | null> {
+  if (!redis) return null;
   const raw = (await redis.eval(
     UPDATE_BATCH_SCRIPT,
     1,
@@ -172,6 +179,7 @@ export async function recordLabelCompletion(
   labelUpdate: BatchLabelItem,
   result: VerificationResult,
 ): Promise<BatchJob | null> {
+  if (!redis) return null;
   const pipeline = redis.multi();
 
   pipeline.set(

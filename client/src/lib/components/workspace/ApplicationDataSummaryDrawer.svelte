@@ -174,7 +174,7 @@
     >
         <div class="flex flex-col gap-3 lg:flex-row lg:items-start">
             <div class="min-w-0 flex-1">
-                <h3 class="text-sm font-bold text-gray-950">
+                <h3 class="panel-title">
                     Application data
                 </h3>
                 <p class="mt-1 truncate text-xs font-medium text-gray-700">

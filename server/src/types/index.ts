@@ -44,7 +44,7 @@ export interface LabelApplication {
   foreignWinePct?: string;
   colorAdditives?: string;
   aspartameDeclaration?: string;
-  // governmentWarning is not user-supplied — verifier compares against GOVERNMENT_WARNING constant
+  // governmentWarning is not user-supplied - verifier compares against GOVERNMENT_WARNING constant
 }
 
 export type LabelApplicationInput = Partial<LabelApplication>;

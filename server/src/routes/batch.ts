@@ -3,7 +3,7 @@ import multer from "multer";
 import { batchUploadLimiter } from "../middleware/rateLimiters";
 import { LabelApplicationSchema } from "../middleware/validation";
 import { upload } from "../middleware/upload";
-import { setBatchJob, getBatchJob } from "../services/redis";
+import redis, { setBatchJob, getBatchJob } from "../services/redis";
 import { processBatch } from "../services/batchProcessor";
 import type { BatchJob, BatchLabelItem } from "../types/index";
 import type { ImageMediaType } from "../types/index";
@@ -29,6 +29,12 @@ router.post(
   withMulter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!redis) {
+        return res.status(503).json({
+          error: "Batch processing requires Redis. Set REDIS_URL to enable.",
+        });
+      }
+
       const files = req.files as Express.Multer.File[] | undefined;
       if (!files || files.length === 0) {
         return res
@@ -87,7 +93,7 @@ router.post(
         application,
       }));
 
-      // Kick off processing in background — do not await
+      // Kick off processing in background - do not await
       processBatch(job, inputs).catch(async (err) => {
         console.error(
           `[batch] unhandled error in processBatch for job ${jobId}:`,

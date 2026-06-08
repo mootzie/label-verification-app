@@ -363,9 +363,7 @@
             `${statusCounts.pass} pass${statusCounts.pass === 1 ? '' : 'es'}`,
         ]
         if (statusCounts.notFound > 0) {
-            parts.push(
-                `${statusCounts.notFound} not found`
-            )
+            parts.push(`${statusCounts.notFound} not found`)
         }
         return parts.join(' · ')
     }
@@ -479,8 +477,7 @@
 {#if mode === 'banner'}
     <section class={`rounded-md border px-4 py-3 ${statusClass()}`}>
         <div
-            class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
-        >
+            class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-3">
                     <p class="text-sm font-bold uppercase tracking-wide">
@@ -495,48 +492,44 @@
                         {#each issueFields.slice(0, 6) as issue}
                             <Badge
                                 variant={issue.status}
-                                class="border-0 px-2 py-0.5 text-[11px]"
-                            >
+                                class="border-0 px-2 py-0.5 text-[11px]">
                                 {formatFieldName(issue.fieldName)}
                             </Badge>
                         {/each}
                         {#if isExtractionOnly}
                             <Badge
                                 variant="not_found"
-                                class="border-0 px-2 py-0.5 text-[11px]"
-                            >
+                                class="border-0 px-2 py-0.5 text-[11px]">
                                 Not compared
                             </Badge>
                         {:else if issueFields.length === 0}
                             <Badge
                                 variant="pass"
-                                class="border-0 px-2 py-0.5 text-[11px]"
-                            >
+                                class="border-0 px-2 py-0.5 text-[11px]">
                                 All required checks passed
                             </Badge>
                         {/if}
                     {:else if loading}
-                        <span class="text-xs font-medium"
-                            >Verification is running. This may take a few
-                            seconds.</span
-                        >
+                        <span class="text-xs font-medium">
+                            Verification is running. This may take a few
+                            seconds.
+                        </span>
                     {:else if error}
-                        <span class="text-xs font-medium"
-                            >Retry after checking the API response or network
-                            connection.</span
-                        >
+                        <span class="text-xs font-medium">
+                            Retry after checking the API response or network
+                            connection.
+                        </span>
                     {:else}
-                        <span class="text-xs font-medium"
-                            >Results will appear here after verification.</span
-                        >
+                        <span class="text-xs font-medium">
+                            Results will appear here after verification.
+                        </span>
                     {/if}
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-2 lg:justify-end">
                 <span
-                    class="rounded border border-current/15 bg-white/55 px-2.5 py-1 text-xs font-bold"
-                >
+                    class="rounded border border-current/15 bg-white/55 px-2.5 py-1 text-xs font-bold">
                     Time: {processingTimeText()}
                 </span>
                 {#if markAllMessage}
@@ -548,8 +541,7 @@
                     <Button
                         size="sm"
                         class="bg-blue-900 hover:bg-blue-800"
-                        onclick={handleMarkAllReviewed}
-                    >
+                        onclick={handleMarkAllReviewed}>
                         Mark as Reviewed
                     </Button>
                 {/if}
@@ -558,15 +550,11 @@
     </section>
 {:else}
     <section
-        class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm"
-    >
+        class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm">
         <div
-            class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 p-3"
-        >
+            class="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 p-3">
             <div class="min-w-0">
-                <h2 class="text-sm font-bold text-gray-950">
-                    Verification Results
-                </h2>
+                <h2 class="panel-title">Verification Results</h2>
 
                 <p class="text-[11px] font-medium text-gray-500">
                     {#if result}
@@ -581,8 +569,9 @@
                 size="sm"
                 class="h-8"
                 disabled={!result}
-                onclick={() => result && onExport?.(decisions)}>Export</Button
-            >
+                onclick={() => result && onExport?.(decisions)}>
+                Export
+            </Button>
         </div>
 
         {#if result}
@@ -604,38 +593,33 @@
                 {colorAdditives}
                 {aspartameDeclaration}
                 fields={visibleFields}
-                extractionOnly={isExtractionOnly}
-            />
+                extractionOnly={isExtractionOnly} />
             {#if comparing}
                 <div
-                    class="flex shrink-0 items-center gap-2 border-b border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700"
-                >
+                    class="flex shrink-0 items-center gap-2 border-b border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
                     <span
-                        class="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500"
-                    ></span>
+                        class="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500">
+                    </span>
                     Comparing with application data…
                 </div>
             {/if}
             {#if result.fields.length === 0 && !loading && !comparing}
                 <div
-                    class="flex min-h-0 flex-1 items-center justify-center p-5 text-sm font-medium text-gray-600"
-                >
+                    class="flex min-h-0 flex-1 items-center justify-center p-5 text-sm font-medium text-gray-600">
                     The verifier returned no field checks. Try another label or
                     review the API response.
                 </div>
             {:else}
                 <div class="min-h-0 flex-1 overflow-auto bg-white">
                     <table
-                        class="h-full w-full min-w-[760px] table-fixed text-left text-sm"
-                    >
+                        class="h-full w-full min-w-[760px] table-fixed text-left text-sm">
                         <colgroup>
                             {#each columnWidths as width}
                                 <col style={`width: ${width}%`} />
                             {/each}
                         </colgroup>
                         <thead
-                            class="sticky top-0 z-10 border-b border-gray-300 bg-gray-100 text-[11px] font-bold text-gray-600 shadow-sm"
-                        >
+                            class="sticky top-0 z-10 border-b border-gray-300 bg-gray-100 text-[11px] font-bold text-gray-600 shadow-sm">
                             <tr>
                                 <th class="relative px-3 py-2">
                                     Field
@@ -646,21 +630,22 @@
                                         onpointerdown={(event) =>
                                             startColumnResize(0, event)}
                                         onkeydown={(event) =>
-                                            handleColumnResizeKeydown(0, event)}
-                                    >
+                                            handleColumnResizeKeydown(
+                                                0,
+                                                event
+                                            )}>
                                         <span
                                             class="flex flex-col gap-[3px]"
-                                            aria-hidden="true"
-                                        >
+                                            aria-hidden="true">
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                         </span>
                                     </button>
                                 </th>
@@ -673,21 +658,22 @@
                                         onpointerdown={(event) =>
                                             startColumnResize(1, event)}
                                         onkeydown={(event) =>
-                                            handleColumnResizeKeydown(1, event)}
-                                    >
+                                            handleColumnResizeKeydown(
+                                                1,
+                                                event
+                                            )}>
                                         <span
                                             class="flex flex-col gap-[3px]"
-                                            aria-hidden="true"
-                                        >
+                                            aria-hidden="true">
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                         </span>
                                     </button>
                                 </th>
@@ -695,8 +681,7 @@
                                     <span>Application (provided)</span>
                                     {#if isExtractionOnly}
                                         <span
-                                            class="mt-0.5 block text-[11px] font-medium italic text-gray-400"
-                                        >
+                                            class="mt-0.5 block text-[11px] font-medium italic text-gray-400">
                                             No application data — extraction
                                             only
                                         </span>
@@ -708,21 +693,22 @@
                                         onpointerdown={(event) =>
                                             startColumnResize(2, event)}
                                         onkeydown={(event) =>
-                                            handleColumnResizeKeydown(2, event)}
-                                    >
+                                            handleColumnResizeKeydown(
+                                                2,
+                                                event
+                                            )}>
                                         <span
                                             class="flex flex-col gap-[3px]"
-                                            aria-hidden="true"
-                                        >
+                                            aria-hidden="true">
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                             <span
-                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"
-                                            ></span>
+                                                class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600">
+                                            </span>
                                         </span>
                                     </button>
                                 </th>
@@ -745,8 +731,7 @@
                                     style="box-shadow: inset 3px 0 0 {selected
                                         ? statusAccentColor(field)
                                         : 'transparent'};"
-                                    onclick={() => toggleExpanded(field)}
-                                >
+                                    onclick={() => toggleExpanded(field)}>
                                     <td class="px-3 py-1.5 align-middle">
                                         <button
                                             type="button"
@@ -754,57 +739,51 @@
                                             onclick={() => selectField(field)}
                                             title={formatFieldName(
                                                 field.fieldName
-                                            )}
-                                        >
+                                            )}>
                                             <span
                                                 class="h-2.5 w-2.5 shrink-0 rounded-sm {statusAccentClass(
                                                     field
                                                 )}"
-                                                aria-hidden="true"
-                                            ></span>
+                                                aria-hidden="true">
+                                            </span>
                                             <span class="min-w-0">
                                                 <span
-                                                    class="block truncate text-sm font-semibold text-gray-950"
-                                                    >{formatFieldName(
+                                                    class="block truncate text-sm font-semibold text-gray-950">
+                                                    {formatFieldName(
                                                         field.fieldName
-                                                    )}</span
-                                                >
+                                                    )}
+                                                </span>
                                             </span>
                                         </button>
                                     </td>
                                     <td
-                                        class="px-3 py-1.5 align-middle text-xs leading-5 text-gray-800"
-                                    >
-                                        <span class="line-clamp-2 break-words"
-                                            >{displayValue(
-                                                field.foundValue
-                                            )}</span
-                                        >
+                                        class="px-3 py-1.5 align-middle text-xs leading-5 text-gray-800">
+                                        <span class="line-clamp-2 break-words">
+                                            {displayValue(field.foundValue)}
+                                        </span>
                                     </td>
                                     <td
-                                        class="px-3 py-1.5 align-middle text-xs leading-5"
-                                    >
+                                        class="px-3 py-1.5 align-middle text-xs leading-5">
                                         {#if isExtractionOnly}
                                             <span class="sr-only">
                                                 No application data provided
                                             </span>
                                         {:else if field.expectedValue}
                                             <span
-                                                class="line-clamp-2 break-words text-gray-800"
-                                                >{field.expectedValue}</span
-                                            >
+                                                class="line-clamp-2 break-words text-gray-800">
+                                                {field.expectedValue}
+                                            </span>
                                         {:else}
-                                            <span class="italic text-gray-400"
-                                                >Not provided</span
-                                            >
+                                            <span class="italic text-gray-400">
+                                                Not provided
+                                            </span>
                                         {/if}
                                     </td>
                                     <td class="px-3 py-1.5 align-middle">
                                         <div class="flex items-center">
                                             {#if !isExtractionOnly && isOptionalNotFound(field)}
                                                 <span
-                                                    class="inline-flex h-6 w-20 items-center justify-center rounded-full border border-gray-200 bg-gray-100 px-2 text-[11px] font-medium text-gray-500"
-                                                >
+                                                    class="inline-flex h-6 w-20 items-center justify-center rounded-full border border-gray-200 bg-gray-100 px-2 text-[11px] font-medium text-gray-500">
                                                     N/A
                                                 </span>
                                             {:else}
@@ -812,13 +791,12 @@
                                                     variant={rowStatusVariant(
                                                         field
                                                     )}
-                                                    class="h-6 w-24 justify-center gap-1 border-0 px-2 text-[11px]"
-                                                >
-                                                    <span aria-hidden="true"
-                                                        >{statusGlyph(
+                                                    class="h-6 w-24 justify-center gap-1 border-0 px-2 text-[11px]">
+                                                    <span aria-hidden="true">
+                                                        {statusGlyph(
                                                             field.status
-                                                        )}</span
-                                                    >
+                                                        )}
+                                                    </span>
                                                     {rowStatusLabel(field)}
                                                 </Badge>
                                             {/if}
@@ -834,8 +812,7 @@
                                                                 ) ===
                                                                 'accepted_variation'
                                                               ? 'bg-amber-100 text-amber-700'
-                                                              : 'bg-green-100 text-green-700'}"
-                                                    >
+                                                              : 'bg-green-100 text-green-700'}">
                                                         {decisionFor(
                                                             field.fieldName
                                                         ) ===
@@ -858,30 +835,24 @@
                                         class="bg-blue-50/60"
                                         style="box-shadow: inset 3px 0 0 {statusAccentColor(
                                             field
-                                        )};"
-                                    >
+                                        )};">
                                         <td
                                             colspan="4"
-                                            class="border-t px-4 py-3"
-                                        >
+                                            class="border-t px-4 py-3">
                                             <div
-                                                class="rounded-md border border-gray-300 bg-white p-3 shadow-sm ring-1 ring-blue-100"
-                                            >
+                                                class="rounded-md border border-gray-300 bg-white p-3 shadow-sm ring-1 ring-blue-100">
                                                 <div
-                                                    class="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-2"
-                                                >
+                                                    class="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-2">
                                                     <div
-                                                        class="flex items-center gap-2"
-                                                    >
+                                                        class="flex items-center gap-2">
                                                         <span
                                                             class="h-2.5 w-2.5 rounded-sm {statusAccentClass(
                                                                 field
                                                             )}"
-                                                            aria-hidden="true"
-                                                        ></span>
+                                                            aria-hidden="true">
+                                                        </span>
                                                         <span
-                                                            class="truncate text-xs font-semibold text-gray-700"
-                                                        >
+                                                            class="truncate text-xs font-semibold text-gray-700">
                                                             {formatFieldName(
                                                                 field.fieldName
                                                             )}
@@ -889,17 +860,15 @@
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <span
-                                                        class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
-                                                        >Review notes</span
-                                                    >
+                                                    <span class="detail-label">
+                                                        Review notes
+                                                    </span>
                                                     <div
-                                                        class="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950 items-center"
-                                                    >
+                                                        class="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-950 items-center">
                                                         <span
                                                             class="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
-                                                            aria-hidden="true"
-                                                        ></span>
+                                                            aria-hidden="true">
+                                                        </span>
                                                         <p>
                                                             {reviewNote(field)}
                                                         </p>
@@ -908,13 +877,12 @@
 
                                                 <div class="mt-3">
                                                     <label
-                                                        class="block min-w-0"
-                                                    >
+                                                        class="block min-w-0">
                                                         <span
-                                                            class="mb-1.5 block text-[10px] font-bold uppercase text-gray-500"
-                                                            >Agent comment
-                                                            (optional)</span
-                                                        >
+                                                            class="detail-label">
+                                                            Agent comment
+                                                            (optional)
+                                                        </span>
                                                         <textarea
                                                             class="min-h-[4.5rem] w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-xs leading-5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                                                             placeholder="Add a comment..."
@@ -927,13 +895,11 @@
                                                                     e
                                                                         .currentTarget
                                                                         .value
-                                                                )}
-                                                        ></textarea>
+                                                                )} />
                                                     </label>
                                                 </div>
                                                 <div
-                                                    class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
-                                                >
+                                                    class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -947,9 +913,9 @@
                                                             setDecision(
                                                                 field.fieldName,
                                                                 'accepted_variation'
-                                                            )}
-                                                        >Accept variation</Button
-                                                    >
+                                                            )}>
+                                                        Accept variation
+                                                    </Button>
                                                     <Button
                                                         size="sm"
                                                         class="h-9 w-full bg-amber-600 text-white hover:bg-amber-700 {decisionFor(
@@ -961,27 +927,24 @@
                                                             setDecision(
                                                                 field.fieldName,
                                                                 'escalated'
-                                                            )}>Escalate</Button
-                                                    >
+                                                            )}>
+                                                        Escalate
+                                                    </Button>
                                                 </div>
                                             </div>
                                             {#if showGovernmentDetails(field)}
                                                 <div
-                                                    class="mt-3 rounded-md border border-gray-300 bg-white p-3 shadow-sm"
-                                                >
+                                                    class="mt-3 rounded-md border border-gray-300 bg-white p-3 shadow-sm">
                                                     <div
-                                                        class="mb-3 flex flex-col gap-2 border-b border-gray-100 pb-3 lg:flex-row lg:items-center lg:justify-between"
-                                                    >
+                                                        class="mb-3 flex flex-col gap-2 border-b border-gray-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
                                                         <div class="min-w-0">
                                                             <h3
-                                                                class="text-xs font-bold text-gray-950"
-                                                            >
+                                                                class="text-xs font-bold text-gray-950">
                                                                 Government
                                                                 warning check
                                                             </h3>
                                                             <p
-                                                                class="mt-0.5 text-[11px] font-medium text-gray-600"
-                                                            >
+                                                                class="mt-0.5 text-[11px] font-medium text-gray-600">
                                                                 Required header
                                                                 and statutory
                                                                 wording per 27
@@ -989,13 +952,11 @@
                                                             </p>
                                                         </div>
                                                         <div
-                                                            class="flex shrink-0 flex-wrap gap-1.5"
-                                                        >
+                                                            class="flex shrink-0 flex-wrap gap-1.5">
                                                             <span
                                                                 class="rounded px-2 py-1 text-[11px] font-bold {governmentWarningHeaderClass(
                                                                     governmentWarning?.foundValue
-                                                                )}"
-                                                            >
+                                                                )}">
                                                                 {governmentWarningHeaderLabel(
                                                                     governmentWarning?.foundValue
                                                                 )}
@@ -1003,8 +964,7 @@
                                                             <span
                                                                 class="rounded px-2 py-1 text-[11px] font-bold {governmentWarningTextClass(
                                                                     governmentWarning?.foundValue
-                                                                )}"
-                                                            >
+                                                                )}">
                                                                 {governmentWarningTextLabel(
                                                                     governmentWarning?.foundValue
                                                                 )}
@@ -1013,20 +973,16 @@
                                                     </div>
 
                                                     <div
-                                                        class="grid gap-3 lg:grid-cols-2"
-                                                    >
+                                                        class="grid gap-3 lg:grid-cols-2">
                                                         <div
-                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3"
-                                                        >
+                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3">
                                                             <p
-                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500"
-                                                            >
+                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500">
                                                                 Detected on
                                                                 label
                                                             </p>
                                                             <p
-                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900"
-                                                            >
+                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900">
                                                                 {normalizedWarning(
                                                                     governmentWarning?.foundValue
                                                                 ) ||
@@ -1034,16 +990,13 @@
                                                             </p>
                                                         </div>
                                                         <div
-                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3"
-                                                        >
+                                                            class="min-w-0 rounded border border-gray-200 bg-gray-50 p-3">
                                                             <p
-                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500"
-                                                            >
+                                                                class="mb-1.5 text-[10px] font-bold uppercase text-gray-500">
                                                                 Required text
                                                             </p>
                                                             <p
-                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900"
-                                                            >
+                                                                class="max-h-28 overflow-auto text-xs leading-5 text-gray-900">
                                                                 {GOVERNMENT_WARNING_REQUIRED}
                                                             </p>
                                                         </div>
@@ -1057,22 +1010,19 @@
                             {#each Array(skeletonRowCount) as _, index}
                                 <tr
                                     class="h-[4.25rem] bg-white"
-                                    aria-hidden="true"
-                                >
+                                    aria-hidden="true">
                                     <td class="px-3 py-2 align-middle">
-                                        <div
-                                            class="flex items-center gap-2"
-                                        >
+                                        <div class="flex items-center gap-2">
                                             <span
-                                                class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-sm bg-gray-200"
-                                            ></span>
+                                                class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-sm bg-gray-200">
+                                            </span>
                                             <span
                                                 class="h-3 animate-pulse rounded bg-gray-200 {index %
                                                     3 ===
                                                 0
                                                     ? 'w-24'
-                                                    : 'w-32'}"
-                                            ></span>
+                                                    : 'w-32'}">
+                                            </span>
                                         </div>
                                     </td>
                                     <td class="px-3 py-2 align-middle">
@@ -1082,27 +1032,27 @@
                                                     2 ===
                                                 0
                                                     ? 'w-40'
-                                                    : 'w-56'}"
-                                            ></div>
+                                                    : 'w-56'}">
+                                            </div>
                                             <div
-                                                class="h-3 w-28 animate-pulse rounded bg-gray-100"
-                                            ></div>
+                                                class="h-3 w-28 animate-pulse rounded bg-gray-100">
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-3 py-2 align-middle">
                                         <div class="space-y-2">
                                             <div
-                                                class="h-3 w-44 animate-pulse rounded bg-gray-100"
-                                            ></div>
+                                                class="h-3 w-44 animate-pulse rounded bg-gray-100">
+                                            </div>
                                             <div
-                                                class="h-3 w-24 animate-pulse rounded bg-gray-100"
-                                            ></div>
+                                                class="h-3 w-24 animate-pulse rounded bg-gray-100">
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-3 py-2 align-middle">
                                         <div
-                                            class="h-6 w-24 animate-pulse rounded-full bg-gray-100"
-                                        ></div>
+                                            class="h-6 w-24 animate-pulse rounded-full bg-gray-100">
+                                        </div>
                                     </td>
                                 </tr>
                             {/each}
@@ -1121,20 +1071,17 @@
                             <div
                                 class="mt-1 flex min-h-5 items-center gap-2"
                                 role="status"
-                                aria-live="polite"
-                            >
+                                aria-live="polite">
                                 <span
                                     class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-600"
-                                    aria-hidden="true"
-                                ></span>
+                                    aria-hidden="true">
+                                </span>
                                 <div
-                                    class="loading-step-rotator relative min-h-5 min-w-[13rem] overflow-hidden text-xs font-semibold text-blue-800"
-                                >
+                                    class="loading-step-rotator relative min-h-5 min-w-[13rem] overflow-hidden text-xs font-semibold text-blue-800">
                                     {#each LOADING_STEPS as step, index}
                                         <span
                                             class="loading-step absolute left-0 top-0 whitespace-nowrap"
-                                            style={`animation-delay: ${index * 1.8}s`}
-                                        >
+                                            style={`animation-delay: ${index * 1.8}s`}>
                                             {step}
                                         </span>
                                     {/each}
@@ -1142,71 +1089,65 @@
                             </div>
                         </div>
                         <span
-                            class="inline-flex shrink-0 items-center gap-2 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-800"
-                        >
+                            class="inline-flex shrink-0 items-center gap-2 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-800">
                             <span
                                 class="h-2 w-2 animate-pulse rounded-full bg-blue-600"
-                                aria-hidden="true"
-                            ></span>
+                                aria-hidden="true">
+                            </span>
                             In progress
                         </span>
                     </div>
                     <div
                         class="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100"
-                        aria-hidden="true"
-                    >
+                        aria-hidden="true">
                         <div
-                            class="loading-progress h-full w-1/3 rounded-full bg-blue-600"
-                        ></div>
+                            class="loading-progress h-full w-1/3 rounded-full bg-blue-600">
+                        </div>
                     </div>
                 </div>
                 <div class="relative min-h-0 flex-1 overflow-hidden p-4">
                     <div
-                        class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-200"
-                    >
+                        class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-200">
                         <div
-                            class="grid shrink-0 grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase text-gray-500"
-                        >
+                            class="grid shrink-0 grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-bold uppercase text-gray-500">
                             <span>Field</span>
                             <span>Label</span>
                             <span>Application</span>
                             <span>Status</span>
                         </div>
                         <div
-                            class="min-h-0 flex-1 divide-y divide-gray-100 bg-white"
-                        >
+                            class="min-h-0 flex-1 divide-y divide-gray-100 bg-white">
                             {#each Array(12) as _, index}
                                 <div
-                                    class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 px-3 py-3"
-                                >
+                                    class="grid grid-cols-[1fr_1.4fr_1.4fr_0.8fr] gap-3 px-3 py-3">
                                     <div
                                         class="h-3 animate-pulse rounded bg-gray-200 {index %
                                             3 ===
                                         0
                                             ? 'w-24'
-                                            : 'w-32'}"
-                                    ></div>
+                                            : 'w-32'}">
+                                    </div>
                                     <div
                                         class="h-3 animate-pulse rounded bg-gray-100 {index %
                                             2 ===
                                         0
                                             ? 'w-36'
-                                            : 'w-48'}"
-                                    ></div>
+                                            : 'w-48'}">
+                                    </div>
                                     <div
-                                        class="h-3 w-40 animate-pulse rounded bg-gray-100"
-                                    ></div>
+                                        class="h-3 w-40 animate-pulse rounded bg-gray-100">
+                                    </div>
                                     <div
-                                        class="h-6 w-20 animate-pulse rounded-full bg-gray-100"
-                                    ></div>
+                                        class="h-6 w-20 animate-pulse rounded-full bg-gray-100">
+                                    </div>
                                 </div>
                             {/each}
                         </div>
                     </div>
                     <div
                         class="pointer-events-none absolute inset-x-4 bottom-4 h-28 rounded-b-md bg-gradient-to-t from-white via-white/85 to-transparent"
-                        aria-hidden="true"
-                    ></div>
+                        aria-hidden="true">
+                    </div>
                 </div>
             </div>
         {:else if error}
@@ -1217,8 +1158,7 @@
                 <p class="mt-1 text-sm text-red-800">{error}</p>
             </div>
             <div
-                class="h-[190px] shrink-0 border-t bg-red-50 px-3 py-2 text-sm font-medium text-red-800"
-            >
+                class="h-[190px] shrink-0 border-t bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
                 Retry after checking the API response or network connection.
             </div>
         {/if}

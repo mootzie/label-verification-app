@@ -1,5 +1,8 @@
 <script lang="ts">
     import { browser } from '$app/environment'
+    import { PUBLIC_API_URL } from '$env/static/public'
+
+    const apiBase = PUBLIC_API_URL || 'http://localhost:3000'
     import type {
         VerificationResult,
         FieldResult,
@@ -37,7 +40,7 @@
     let imagePreviewUrl = $state<string | null>(null)
     let globalDragActive = $state(false)
 
-    // Application data — populated by paste/parse or manual entry in ApplicationDataInput
+    // Application data - populated by paste/parse or manual entry in ApplicationDataInput
     let brandName = $state('')
     let beverageType = $state<'beer' | 'wine' | 'distilled_spirits'>(
         'distilled_spirits'
@@ -131,7 +134,7 @@
             selectedReviewFieldName = null
             error = null
         } else if (labels[index]) {
-            // Item exists but result not ready yet — clear stale review so the
+            // Item exists but result not ready yet - clear stale review so the
             // panel doesn't show the previous label's data
             result = null
             error = null
@@ -255,7 +258,13 @@
         error = null
         jobId = syntheticId
         jobDone = false
-        labels = [{ labelId: syntheticId, filename: image.name, status: 'processing' }]
+        labels = [
+            {
+                labelId: syntheticId,
+                filename: image.name,
+                status: 'processing',
+            },
+        ]
 
         const formData = new FormData()
         formData.append('image', await resizeForUpload(image))
@@ -263,10 +272,15 @@
 
         let res: Response
         try {
-            res = await fetch('/api/verify/stream', { method: 'POST', body: formData })
+            res = await fetch(`${apiBase}/api/verify/stream`, {
+                method: 'POST',
+                body: formData,
+            })
         } catch {
             error = 'Network error'
-            labels = [{ ...labels[0], status: 'failed', error: 'Network error' }]
+            labels = [
+                { ...labels[0], status: 'failed', error: 'Network error' },
+            ]
             loading = false
             jobDone = true
             return
@@ -274,7 +288,11 @@
 
         if (!res.ok || !res.body) {
             let errMsg = 'Verification failed'
-            try { errMsg = (await res.json()).error ?? errMsg } catch { /* ignore */ }
+            try {
+                errMsg = (await res.json()).error ?? errMsg
+            } catch {
+                /* ignore */
+            }
             error = errMsg
             labels = [{ ...labels[0], status: 'failed', error: errMsg }]
             loading = false
@@ -282,7 +300,7 @@
             return
         }
 
-        // Create the result object once — VerificationReview's decisions/expandedFields
+        // Create the result object once - VerificationReview's decisions/expandedFields
         // reset fires on this reference change, then stays stable as we mutate in place.
         result = { overallStatus: 'warning' as OverallStatus, fields: [] }
         streaming = true
@@ -307,18 +325,31 @@
                     if (payload === '[DONE]') break outer
 
                     let event: Record<string, unknown>
-                    try { event = JSON.parse(payload) } catch { continue }
+                    try {
+                        event = JSON.parse(payload)
+                    } catch {
+                        continue
+                    }
 
                     if (event.type === 'field') {
                         result!.fields.push(event as unknown as FieldResult)
                         result = result // surface mutation to Svelte reactivity
                     } else if (event.type === 'done') {
-                        result!.overallStatus = event.overallStatus as OverallStatus
-                        if (event.processingTimeMs != null) result!.processingTimeMs = event.processingTimeMs as number
-                        if (event.imageQuality != null) result!.imageQuality = event.imageQuality as VerificationResult['imageQuality']
-                        if (event.imageNotes != null) result!.imageNotes = event.imageNotes as string
+                        result!.overallStatus =
+                            event.overallStatus as OverallStatus
+                        if (event.processingTimeMs != null)
+                            result!.processingTimeMs =
+                                event.processingTimeMs as number
+                        if (event.imageQuality != null)
+                            result!.imageQuality =
+                                event.imageQuality as VerificationResult['imageQuality']
+                        if (event.imageNotes != null)
+                            result!.imageNotes = event.imageNotes as string
                         result = result
-                        streamElapsedMs = streamStartMs !== null ? Date.now() - streamStartMs : null
+                        streamElapsedMs =
+                            streamStartMs !== null
+                                ? Date.now() - streamStartMs
+                                : null
                         labels = [{ ...labels[0], status: 'complete', result }]
                     } else if (event.type === 'error') {
                         error = (event.error as string) ?? 'Verification failed'
@@ -328,7 +359,13 @@
                         } else {
                             result = null
                         }
-                        labels = [{ ...labels[0], status: 'failed', error: error ?? undefined }]
+                        labels = [
+                            {
+                                ...labels[0],
+                                status: 'failed',
+                                error: error ?? undefined,
+                            },
+                        ]
                         break outer
                     }
                 }
@@ -337,7 +374,9 @@
             if (!result || result.fields.length === 0) {
                 error = 'Network error during verification'
                 result = null
-                labels = [{ ...labels[0], status: 'failed', error: 'Network error' }]
+                labels = [
+                    { ...labels[0], status: 'failed', error: 'Network error' },
+                ]
             }
         } finally {
             loading = false
@@ -357,7 +396,7 @@
         resized.forEach((f) => fd.append('images', f))
         appendOptionalApplication(fd)
         try {
-            const res = await fetch('/api/batch/upload', {
+            const res = await fetch(`${apiBase}/api/batch/upload`, {
                 method: 'POST',
                 body: fd,
             })
@@ -381,7 +420,7 @@
     }
 
     function openEventSource(jid: string) {
-        es = new EventSource(`/api/batch/${jid}/stream`)
+        es = new EventSource(`${apiBase}/api/batch/${jid}/stream`)
         es.addEventListener('label', (e: MessageEvent) => {
             const update: BatchLabelItem = JSON.parse(e.data)
             labels = labels.map((l) =>
@@ -564,7 +603,7 @@
         await handleSubmitForFiles(fetchedFiles)
     }
 
-    // #region Global Ctrl+V — fills application data fields from clipboard
+    // #region Global Ctrl+V - fills application data fields from clipboard
     $effect(() => setupCtrlVHandler(() => void smartPaste()))
 
     async function smartPaste() {
@@ -616,6 +655,11 @@
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            <a
+                href="/docs"
+                class="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900">
+                Docs
+            </a>
             <span
                 class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
                 <span
@@ -653,14 +697,14 @@
                                     <span class="font-medium text-gray-700">
                                         Preview
                                     </span>
-                                    — instant pre-baked result
+                                    - instant pre-baked result
                                 </span>
                                 <span>·</span>
                                 <span>
                                     <span class="font-medium text-indigo-700">
                                         Run
                                     </span>
-                                    — real Claude API
+                                    - real Claude API
                                 </span>
                             </div>
                         </div>
@@ -880,9 +924,7 @@
                 <section
                     class="flex min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
                     <div class="px-4 py-3">
-                        <h2 class="text-sm font-bold text-gray-950">
-                            Label Image Upload
-                        </h2>
+                        <h2 class="panel-title">Label Image Upload</h2>
                         <p class="mt-0.5 text-xs font-medium text-gray-500">
                             Add a single label image to begin verification.
                         </p>
@@ -1015,7 +1057,7 @@
     {/if}
 
     {#if reviewActive && showReviewQueue}
-        <!-- Batch queue — shown only for multi-label review -->
+        <!-- Batch queue - shown only for multi-label review -->
         <div class="mt-3 shrink-0">
             <BatchQueue
                 {jobId}

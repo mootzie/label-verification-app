@@ -311,7 +311,7 @@
                                 class="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-500">
                                 <QueueIcon size={24} />
                             </div>
-                            <p class="text-sm font-bold text-gray-950">
+                            <p class="panel-title">
                                 No labels queued yet
                             </p>
                             <p class="mt-1 text-xs font-medium text-gray-600">

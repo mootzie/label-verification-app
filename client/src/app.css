@@ -11,3 +11,35 @@
         color: #6b7280;
     }
 }
+
+@layer components {
+    /* Panel headers
+       ------------------------------------------------------------ */
+    /* Primary heading inside a card or section header bar. */
+    .panel-title {
+        @apply text-sm font-bold text-gray-950;
+    }
+
+    /* Forms
+       ------------------------------------------------------------ */
+    /* Label row for a form field — wraps the field name, required
+       asterisk, and any badge. */
+    .field-label {
+        @apply mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600;
+    }
+
+    /* Single-line text input and select element base style. */
+    .form-input {
+        @apply h-9 w-full rounded border border-gray-300 bg-white px-2.5 text-sm
+               text-gray-900 transition-colors focus:outline-none focus:ring-1
+               focus:ring-blue-600;
+    }
+
+    /* Results
+       ------------------------------------------------------------ */
+    /* Micro uppercase heading above a result detail block (e.g.
+       "Review notes", "Agent comment", "Detected on label"). */
+    .detail-label {
+        @apply mb-1.5 block text-[10px] font-bold uppercase text-gray-500;
+    }
+}

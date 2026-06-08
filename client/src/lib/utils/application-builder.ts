@@ -12,7 +12,7 @@ export function parseSmartPaste(text: string) {
         }
     }
 
-    // JSON array — use first element
+    // JSON array - use first element
     if (trimmed.startsWith('[')) {
         try {
             const arr = JSON.parse(trimmed)

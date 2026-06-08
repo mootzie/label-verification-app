@@ -225,7 +225,7 @@ function validateGovernmentWarning(foundValue: string | null): {
     };
   }
 
-  // Check 2: statutory body text — word-overlap similarity
+  // Check 2: statutory body text - word-overlap similarity
   const bodyStart = foundValue.indexOf(GW_HEADER) + GW_HEADER.length;
   const extractedBody = normalizeText(foundValue.slice(bodyStart));
   const similarity = wordOverlapSimilarity(GW_STATUTORY_BODY, extractedBody);
@@ -240,7 +240,7 @@ function validateGovernmentWarning(foundValue: string | null): {
   if (similarity >= 0.7) {
     return {
       status: "warning",
-      notes: `Warning text may have OCR errors or minor deviations (${pct}% word match) — agent should visually verify.`,
+      notes: `Warning text may have OCR errors or minor deviations (${pct}% word match) - agent should visually verify.`,
     };
   }
   return {
@@ -265,17 +265,17 @@ function applyProgrammaticChecks(
 const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) label compliance analyst. Your job is to extract field values from alcohol beverage label images with high accuracy.
 
 EXTRACTION RULES:
-- Extract text exactly as it appears — preserve capitalization, punctuation, and spacing character by character
-- If a word or phrase is unclear due to image angle, glare, or degradation, write [UNCLEAR] in place of that portion — do NOT guess or substitute a word you think should be there
-- Never correct what you see to match what you expect — extract what is visually present, even if it seems like a typo or partial word
+- Extract text exactly as it appears - preserve capitalization, punctuation, and spacing character by character
+- If a word or phrase is unclear due to image angle, glare, or degradation, write [UNCLEAR] in place of that portion - do NOT guess or substitute a word you think should be there
+- Never correct what you see to match what you expect - extract what is visually present, even if it seems like a typo or partial word
 - If a field is not visible on this label face at all, set extracted to null
 
 GOVERNMENT WARNING FIELD RULES:
 - Extract the complete warning text verbatim, starting from the header
-- The header is typically "GOVERNMENT WARNING:" — copy whatever casing you see exactly, character by character
-- The body text refers to the Surgeon General, pregnancy and birth defects, and driving or operating machinery — extract verbatim, do not paraphrase
+- The header is typically "GOVERNMENT WARNING:" - copy whatever casing you see exactly, character by character
+- The body text refers to the Surgeon General, pregnancy and birth defects, and driving or operating machinery - extract verbatim, do not paraphrase
 - If the label is angled and some warning text is partially cut off or illegible, extract what you can and append [UNCLEAR] for the rest
-- Do NOT evaluate whether the warning meets formatting requirements — extract only; compliance checking happens separately
+- Do NOT evaluate whether the warning meets formatting requirements - extract only; compliance checking happens separately
 
 IMAGE QUALITY:
 Labels photographed at angles, with glare, or in low light are common.
@@ -325,7 +325,7 @@ Verify fields according to TTB requirements for this beverage type.
 Required fields for this type that are absent from the label should be flagged as fail.
 Fields marked 'if applicable' or 'imports only' that are absent should be flagged as extracted (not a failure).
 
-Return this exact JSON structure — no other text:
+Return this exact JSON structure - no other text:
 
 {
   "fields": [
@@ -347,7 +347,7 @@ ${fieldLines}
 
 STATUS RULES (only apply when application data is provided for that field):
 - pass:      extracted matches application value (semantically equivalent)
-- warning:   minor difference — abbreviation, punctuation, or level of specificity — always explain in notes
+- warning:   minor difference - abbreviation, punctuation, or level of specificity - always explain in notes
 - fail:      clear mismatch, or a mandatory field is entirely absent
 - extracted: no application value was provided for this field`;
 }
@@ -361,7 +361,7 @@ function mapClaudeField(cf: z.infer<typeof ClaudeFieldSchema>): FieldResult {
     fieldName: FIELD_NAME_MAP[cf.field] ?? cf.field,
     foundValue: cf.extracted,
     expectedValue: cf.application,
-    // "extracted" means no comparison was requested — treat as pass
+    // "extracted" means no comparison was requested - treat as pass
     status: cf.status === "extracted" ? "pass" : cf.status,
     notes: cf.notes ?? "",
   };
@@ -457,7 +457,7 @@ export async function verifyLabel(
 }
 
 // ---------------------------------------------------------------------------
-// Streaming entry point — emits FieldResult objects as they become parseable
+// Streaming entry point - emits FieldResult objects as they become parseable
 // ---------------------------------------------------------------------------
 
 export async function verifyLabelStream(
@@ -494,7 +494,7 @@ export async function verifyLabelStream(
     signal,
   );
 
-  // Fallback: streaming missed all fields — parse the complete response instead
+  // Fallback: streaming missed all fields - parse the complete response instead
   if (fields.length === 0) {
     const parsed = tryParse(fullText);
     if (parsed) {
