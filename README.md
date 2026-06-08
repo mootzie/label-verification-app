@@ -43,6 +43,14 @@ PORT="3001"                          # optional, defaults to 3001
 redis-server
 ```
 
+
+
+**Start both concurrently** (from the root of the mono repo): 
+```bash
+npm run dev
+```
+---- OR -----
+
 **Start the backend** (separate terminal):
 
 ```bash
@@ -54,6 +62,9 @@ cd server && npm run dev
 ```bash
 cd client && npm run dev
 ```
+
+
+
 
 Frontend runs at `http://localhost:5173`, backend at `http://localhost:3001`.
 
