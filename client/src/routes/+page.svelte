@@ -589,7 +589,7 @@
                 <Button variant="outline" size="sm" class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onclick={() => (showDemoPanel = !showDemoPanel)}>Load Demo</Button>
                 {#if showDemoPanel}
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="absolute left-0 md:right-0 top-full z-50 mt-1 w-xl rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
+                    <div class="absolute left-0 md:left-auto md:right-0 top-full z-50 mt-1 w-xl rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
                         <div class="border-b border-gray-100 px-3 py-2">
                             <p class="text-xs font-semibold text-gray-700">Demo Scenarios</p>
                             <div class="mt-1 flex items-center gap-3 text-xs text-gray-500">
