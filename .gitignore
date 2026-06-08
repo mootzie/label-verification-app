@@ -11,6 +11,7 @@ TESTS.md
 test-images/
 *.md
 *.md.bak
+**/.vercel/
 
 # SvelteKit
 client/.svelte-kit/
