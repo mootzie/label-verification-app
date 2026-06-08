@@ -68,7 +68,63 @@ else
   echo "  error : $(cat /tmp/ttb_single_response.json)"
 fi
 
-# ── 2. BATCH UPLOAD + SSE STREAM ─────────────────────────────────────────────
+# ── 2. STREAMING VERIFY (SSE) ────────────────────────────────────────────────
+hr
+echo "STREAMING VERIFY (SSE)"
+echo "  image : $(basename "$SINGLE_IMAGE")"
+echo "  size  : $(du -h "$SINGLE_IMAGE" | cut -f1)"
+echo "  url   : $HOST/api/verify/stream"
+
+T_STREAM_START=$(ts)
+T_FIRST_FIELD=""
+STREAM_FIELDS=0
+STREAM_STATUS=""
+STREAM_ERROR=""
+
+while IFS= read -r line; do
+  if [[ "$line" == data:* ]]; then
+    PAYLOAD="${line#data: }"
+    if [[ "$PAYLOAD" == "[DONE]" ]]; then
+      break
+    fi
+    TYPE=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.stdin).get('type',''))" 2>/dev/null || echo "")
+    if [[ "$TYPE" == "field" ]]; then
+      if [[ -z "$T_FIRST_FIELD" ]]; then
+        T_FIRST_FIELD=$(( $(ts) - T_STREAM_START ))
+      fi
+      STREAM_FIELDS=$(( STREAM_FIELDS + 1 ))
+    elif [[ "$TYPE" == "done" ]]; then
+      STREAM_STATUS=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.stdin).get('overallStatus','?'))" 2>/dev/null || echo "?")
+    elif [[ "$TYPE" == "error" ]]; then
+      STREAM_ERROR=$(echo "$PAYLOAD" | python3 -c "import json,sys; print(json.load(sys.stdin).get('error','unknown error'))" 2>/dev/null || echo "unknown error")
+    fi
+  fi
+done < <(curl -sN \
+  --connect-timeout 5 \
+  --max-time 60 \
+  -X POST "$HOST/api/verify/stream" \
+  -F "image=@$SINGLE_IMAGE" \
+  -F "application=$APP_JSON")
+
+T_STREAM_TOTAL=$(( $(ts) - T_STREAM_START ))
+
+echo "  total time  : ${T_STREAM_TOTAL}ms"
+echo "  fields      : $STREAM_FIELDS"
+if [[ -n "$STREAM_ERROR" ]]; then
+  echo "  error       : $STREAM_ERROR"
+else
+  echo "  result      : $STREAM_STATUS"
+fi
+if [[ -n "$T_FIRST_FIELD" ]]; then
+  echo "  first field : ${T_FIRST_FIELD}ms"
+  if (( T_FIRST_FIELD < 2000 )); then
+    echo "  first field : PASS (<2000ms target)"
+  else
+    echo "  first field : SLOW (${T_FIRST_FIELD}ms > 2000ms target)"
+  fi
+fi
+
+# ── 4. BATCH UPLOAD + SSE STREAM ─────────────────────────────────────────────
 hr
 echo "BATCH PROCESSING"
 echo "  images: ${#IMAGES[@]}"
@@ -135,12 +191,21 @@ T_BATCH_TOTAL=$(( $(ts) - T_BATCH_START ))
 
 hr
 echo "SUMMARY"
-echo "  single verify : ${T_SINGLE}ms"
-echo "  batch total   : ${T_BATCH_TOTAL}ms  (${#IMAGES[@]} labels, avg $(( T_BATCH_TOTAL / ${#IMAGES[@]} ))ms/label)"
-echo "  target        : <5000ms single,  <$(( 5000 * ${#IMAGES[@]} / 3 ))ms batch (3 concurrent at 5s each)"
+echo "  single verify (blocking) : ${T_SINGLE}ms"
+if [[ -n "$T_FIRST_FIELD" ]]; then
+  echo "  stream first field       : ${T_FIRST_FIELD}ms  (target <2000ms)"
+fi
+echo "  stream total             : ${T_STREAM_TOTAL}ms"
+echo "  batch total              : ${T_BATCH_TOTAL}ms  (${#IMAGES[@]} labels, avg $(( T_BATCH_TOTAL / ${#IMAGES[@]} ))ms/label)"
+echo "  target                   : <5000ms single/stream,  <$(( 5000 * ${#IMAGES[@]} / 3 ))ms batch"
 if (( T_SINGLE < 5000 )); then
-  echo "  single        : PASS"
+  echo "  single                   : PASS"
 else
-  echo "  single        : SLOW (${T_SINGLE}ms > 5000ms target)"
+  echo "  single                   : SLOW (${T_SINGLE}ms > 5000ms)"
+fi
+if (( T_STREAM_TOTAL < 5000 )); then
+  echo "  stream                   : PASS"
+else
+  echo "  stream                   : SLOW (${T_STREAM_TOTAL}ms > 5000ms)"
 fi
 hr

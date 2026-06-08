@@ -6,7 +6,7 @@ import type {
   OverallStatus,
   VerificationResult,
 } from "../types/index";
-import { callClaudeVision, type ImageMediaType } from "./claude";
+import { callClaudeVision, streamClaudeVision, type ImageMediaType } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 
 // ---------------------------------------------------------------------------
@@ -453,4 +453,70 @@ export async function verifyLabel(
   throw new Error(
     `Claude response failed schema validation after retry. Last response: ${rawRetry.slice(0, 200)}`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Streaming entry point — emits FieldResult objects as they become parseable
+// ---------------------------------------------------------------------------
+
+export async function verifyLabelStream(
+  imageBase64: string,
+  mediaType: ImageMediaType,
+  application: LabelApplicationInput = {},
+  onField: (field: FieldResult) => void,
+  signal?: AbortSignal,
+): Promise<VerificationResult> {
+  const start = Date.now();
+  const userMessage = buildUserMessage(application);
+  const fields: FieldResult[] = [];
+
+  const fullText = await streamClaudeVision(
+    imageBase64,
+    mediaType,
+    userMessage,
+    SYSTEM_PROMPT,
+    (rawJson) => {
+      try {
+        const validated = ClaudeFieldSchema.safeParse(JSON.parse(rawJson));
+        if (!validated.success) return;
+        let field = mapClaudeField(validated.data);
+        if (validated.data.field === "government_warning") {
+          const { status, notes } = validateGovernmentWarning(field.foundValue);
+          field = { ...field, status, notes };
+        }
+        fields.push(field);
+        onField(field);
+      } catch {
+        // ignore malformed partial objects
+      }
+    },
+    signal,
+  );
+
+  // Fallback: streaming missed all fields — parse the complete response instead
+  if (fields.length === 0) {
+    const parsed = tryParse(fullText);
+    if (parsed) {
+      const checked = applyProgrammaticChecks(parsed);
+      const result: VerificationResult = {
+        ...checked,
+        overallStatus: deriveOverallStatus(checked.fields),
+        processingTimeMs: Date.now() - start,
+      };
+      result.fields.forEach(onField);
+      return result;
+    }
+    throw new Error("Stream produced no parseable fields");
+  }
+
+  // Extract image metadata from the full response
+  const meta = tryParse(fullText);
+
+  return {
+    overallStatus: deriveOverallStatus(fields),
+    fields,
+    processingTimeMs: Date.now() - start,
+    imageQuality: meta?.imageQuality,
+    imageNotes: meta?.imageNotes,
+  };
 }

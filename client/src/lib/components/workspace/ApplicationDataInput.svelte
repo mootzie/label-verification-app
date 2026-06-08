@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { tick } from 'svelte'
     import { Button } from '$lib/components/ui/button'
     import { parseSmartPaste } from '$lib/utils/application-builder'
     import {
@@ -222,11 +223,12 @@
     const inputCls =
         'w-full rounded border border-gray-300 bg-white px-2.5 h-9 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-600 transition-colors'
 
-    let textarea: HTMLTextAreaElement
-    import { tick } from 'svelte'
+    let textarea = $state<HTMLTextAreaElement | null>(null)
 </script>
 
-<div class="flex flex-col rounded-md border border-gray-200 bg-white shadow-sm">
+<div
+    class="flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm"
+>
     <div
         class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div>
@@ -245,7 +247,7 @@
             onclick={async () => {
                 showPaste = !showPaste
                 await tick()
-                textarea.focus()
+                textarea?.focus()
             }}>
             {showPaste
                 ? 'Hide paste helper'
@@ -253,7 +255,7 @@
         </button>
     </div>
 
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <!-- Beverage type — controls which fields and class/type options are shown -->
         <label class="block">
             <span

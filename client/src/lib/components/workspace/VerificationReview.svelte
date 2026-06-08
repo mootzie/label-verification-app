@@ -620,7 +620,7 @@
             {:else}
                 <div class="min-h-0 flex-1 overflow-auto">
                     <table
-                        class="w-full min-w-[760px] table-fixed text-left text-sm h-full"
+                        class="w-full min-w-[760px] table-fixed text-left text-sm"
                     >
                         <colgroup>
                             {#each columnWidths as width}

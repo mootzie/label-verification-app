@@ -1,9 +1,11 @@
 <script lang="ts">
-    import { Badge } from '$lib/components/ui/badge'
-    import { formatFieldName, STATUS_LABEL } from '$lib/utils/compliance-logic'
+    import { ChevronDownIcon, InfoIcon } from '$lib/components/ui/icon'
     import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverage-fields'
-    import type { BeverageType } from '$lib/utils/beverage-fields'
-    import type { FieldResult, FieldStatus } from '$shared/index'
+    import type {
+        BeverageFieldDef,
+        BeverageType,
+    } from '$lib/utils/beverage-fields'
+    import type { FieldResult } from '$shared/index'
 
     let {
         brandName = '',
@@ -23,7 +25,6 @@
         colorAdditives = '',
         aspartameDeclaration = '',
         fields = [],
-        extractionOnly = false,
     }: {
         brandName?: string
         producerName?: string
@@ -45,6 +46,13 @@
         extractionOnly?: boolean
     } = $props()
 
+    type ApplicationRow = {
+        key: string
+        label: string
+        value: string
+        resultKey: string
+    }
+
     let expanded = $state(false)
 
     let fieldResults = $derived.by(() => {
@@ -53,42 +61,20 @@
         return map
     })
 
-    let hasApplicationData = $derived(
-        [
-            brandName,
-            classType,
-            alcoholContent,
-            netContents,
-            producerName,
-            producerAddress,
-            countryOfOrigin,
-            appellation,
-            ageStatement,
-            colorDisclosures,
-            commodityStatement,
-            sulfiteDeclaration,
-            foreignWinePct,
-            colorAdditives,
-            aspartameDeclaration,
-        ].some((value) => value.trim().length > 0)
-    )
-
-    let summary = $derived.by(() => {
-        const values = [brandName, classType, alcoholContent, netContents]
+    let summaryValues = $derived.by(() =>
+        [brandName, classType, alcoholContent, netContents]
             .map((value) => value.trim())
             .filter(Boolean)
-        if (values.length === 0)
-            return 'No application data provided - extraction only'
-        return values.join(' · ')
-    })
+    )
 
-    let applicationRows = $derived.by(() => {
-        const rows: {
-            key: string
-            label: string
-            value: string
-            resultKey: string
-        }[] = []
+    let summary = $derived(
+        summaryValues.length > 0
+            ? summaryValues.join(' · ')
+            : 'No application data provided'
+    )
+
+    let rows = $derived.by(() => {
+        const next: ApplicationRow[] = []
 
         function add(
             key: string,
@@ -96,8 +82,9 @@
             value: string,
             resultKey = key
         ) {
-            if (!value.trim() && !fieldResults.has(resultKey)) return
-            rows.push({ key, label, value, resultKey })
+            const display = displayValue(value, resultKey)
+            if (!display) return
+            next.push({ key, label, value: display, resultKey })
         }
 
         for (const field of BEVERAGE_FIELD_SETS[beverageType] ?? []) {
@@ -105,7 +92,7 @@
                 add(
                     'governmentWarning',
                     'Government Warning',
-                    'Required statutory warning',
+                    '',
                     'governmentWarning'
                 )
             } else if (field.formKey === 'name_address') {
@@ -131,10 +118,15 @@
             }
         }
 
-        return rows
+        return next
     })
 
-    function fieldValue(key: string) {
+    let rowColumns = $derived.by(() => {
+        const midpoint = Math.ceil(rows.length / 2)
+        return [rows.slice(0, midpoint), rows.slice(midpoint)]
+    })
+
+    function fieldValue(key: BeverageFieldDef['formKey']) {
         switch (key) {
             case 'brandName':
                 return brandName
@@ -167,109 +159,90 @@
         }
     }
 
-    function statusFor(resultKey: string): FieldStatus | 'not_compared' {
-        if (extractionOnly) return 'not_compared'
-        return fieldResults.get(resultKey)?.status ?? 'not_compared'
-    }
-
-    function statusLabel(status: FieldStatus | 'not_compared') {
-        if (status === 'not_compared') return 'Not compared'
-        return STATUS_LABEL[status]
-    }
-
-    function statusVariant(status: FieldStatus | 'not_compared') {
-        if (status === 'not_compared') return 'not_found'
-        return status
-    }
-
-    function statusDotClass(status: FieldStatus | 'not_compared') {
-        if (status === 'pass') return 'bg-green-500'
-        if (status === 'warning') return 'bg-amber-500'
-        if (status === 'fail') return 'bg-red-500'
-        return 'bg-gray-400'
+    function displayValue(value: string, resultKey: string) {
+        const trimmed = value.trim()
+        if (trimmed) return trimmed
+        if (resultKey === 'governmentWarning')
+            return 'Required statutory warning'
+        return fieldResults.get(resultKey)?.expectedValue?.trim() ?? ''
     }
 </script>
 
 <section class="shrink-0 border-b border-gray-200 bg-white px-3 py-2">
     <div
-        class="rounded-md border border-gray-200 bg-slate-50 px-3 py-2 shadow-sm"
+        class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm"
     >
-        <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start">
             <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                    <h3 class="text-xs font-bold text-gray-950">
-                        Application data
-                    </h3>
-                    {#if !hasApplicationData}
-                        <span
-                            class="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
-                        >
-                            Extraction only
-                        </span>
-                    {/if}
-                </div>
-                <p class="mt-1 truncate text-xs font-medium text-gray-600">
+                <h3 class="text-sm font-bold text-gray-950">
+                    Application data
+                </h3>
+                <p class="mt-1 truncate text-xs font-medium text-gray-700">
                     {summary}
+                </p>
+                <p
+                    class="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500"
+                >
+                    Reference values used for comparison
+                    <span
+                        class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-gray-500"
+                        aria-label="Application data comes from the submitted application or source system."
+                    >
+                        <InfoIcon size={14} />
+                    </span>
                 </p>
             </div>
             <button
                 type="button"
-                class="inline-flex h-8 shrink-0 items-center justify-center rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                class="inline-flex h-9 shrink-0 items-center justify-center rounded border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 shadow-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                 aria-expanded={expanded}
                 onclick={() => (expanded = !expanded)}
             >
-                {expanded ? 'Hide application data' : 'View application data'}
-                <span class="ml-1" aria-hidden="true"
-                    >{expanded ? '▴' : '▾'}</span
-                >
+                {expanded ? 'Hide details' : 'View details'}
+                <ChevronDownIcon
+                    size={16}
+                    className="ml-2 text-gray-500 transition-transform {expanded ? 'rotate-180' : ''}"
+                />
             </button>
         </div>
 
         {#if expanded}
-            <div class="mt-3 border-t border-gray-200 pt-3">
-                {#if applicationRows.length === 0}
-                    <p class="text-xs font-medium text-gray-600">
-                        No application data was submitted for comparison.
-                    </p>
-                {:else}
-                    <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                        {#each applicationRows as row (row.key)}
-                            {@const status = statusFor(row.resultKey)}
-                            <div
-                                class="flex min-w-0 items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2"
-                            >
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <span
-                                            class="h-2 w-2 shrink-0 rounded-sm {statusDotClass(
-                                                status
-                                            )}"
-                                            aria-hidden="true"
-                                        ></span>
-                                        <p
-                                            class="truncate text-xs font-bold text-gray-900"
-                                        >
-                                            {row.label ||
-                                                formatFieldName(row.resultKey)}
-                                        </p>
-                                    </div>
-                                    <p
-                                        class="mt-1 line-clamp-2 break-words pl-4 text-xs leading-5 text-gray-600"
-                                    >
-                                        {row.value.trim() || 'Not provided'}
-                                    </p>
-                                </div>
-                                <Badge
-                                    variant={statusVariant(status)}
-                                    class="h-6 w-24 shrink-0 justify-center border-0 px-2 text-[11px]"
+            {#if rows.length === 0}
+                <p
+                    class="mt-3 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600"
+                >
+                    No application data was submitted for comparison.
+                </p>
+            {:else}
+                <div
+                    class="mt-3 grid overflow-hidden rounded border border-gray-200 bg-white lg:grid-cols-2"
+                >
+                    {#each rowColumns as column, columnIndex}
+                        <div
+                            class="divide-y divide-gray-100 {columnIndex === 0
+                                ? 'lg:border-r lg:border-gray-200'
+                                : ''}"
+                        >
+                            {#each column as row (row.key)}
+                                <div
+                                    class="grid grid-cols-[minmax(8rem,0.75fr)_1fr] gap-4 px-3 py-2.5 text-xs"
                                 >
-                                    {statusLabel(status)}
-                                </Badge>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
-            </div>
+                                    <div
+                                        class="font-bold text-gray-900"
+                                    >
+                                        {row.label}
+                                    </div>
+                                    <div
+                                        class="min-w-0 break-words font-medium leading-5 text-gray-700"
+                                    >
+                                        {row.value}
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
         {/if}
     </div>
 </section>

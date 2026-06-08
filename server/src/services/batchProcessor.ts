@@ -4,7 +4,7 @@ import type {
   LabelApplicationInput,
 } from "../types/index";
 import type { ImageMediaType } from "./claude";
-import { verifyLabel } from "./labelVerifier";
+import { verifyLabelStream } from "./labelVerifier";
 import { recordLabelCompletion } from "./redis";
 
 const MAX_CONCURRENT = 5; // raise if Anthropic rate limits hit; lower for free-tier keys
@@ -28,17 +28,12 @@ export async function processBatch(
       const input = queue.shift();
       if (!input) break;
 
-      const labelUpdate: BatchLabelItem = {
-        labelId: input.labelId,
-        filename: input.filename,
-        status: "processing",
-      };
-
       try {
-        const result = await verifyLabel(
+        const result = await verifyLabelStream(
           input.imageBase64,
           input.mediaType,
           input.application,
+          () => {}, // per-field events not needed at batch level
         );
 
         const completed: BatchLabelItem = {

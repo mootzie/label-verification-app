@@ -6,9 +6,6 @@
         CardTitle,
     } from '$lib/components/ui/card'
     import { FileTextIcon, UploadIcon } from '$lib/components/ui/icon'
-    import { formatFieldName } from '$lib/utils/compliance-logic'
-    import type { FieldResult } from '$shared/index'
-    import Tesseract from 'tesseract.js'
 
     let {
         files,
@@ -16,7 +13,6 @@
         selectedFileIndex,
         jobId,
         selectedFieldName = null,
-        verificationFields = [],
         workstation = false,
         blankState = false,
         hideFileInput = false,
@@ -32,7 +28,6 @@
         selectedFileIndex: number | null
         jobId: string | null
         selectedFieldName?: string | null
-        verificationFields?: FieldResult[]
         workstation?: boolean
         blankState?: boolean
         hideFileInput?: boolean
@@ -48,61 +43,12 @@
     let zoomEnabled = $state(true)
     let zoomLevel = $state(2.5)
     let previewSurface = $state<HTMLDivElement | null>(null)
-    let previewFrame = $state<HTMLDivElement | null>(null)
-    let previewImage = $state<HTMLImageElement | null>(null)
     let zoomInitialized = false
     let pointerFrame = 0
     let nextOrigin = '50% 50%'
-    let ocrRunning = $state(false)
-    let ocrProgress = $state('')
-    let ocrError = $state<string | null>(null)
-    let ocrMatches = $state<OcrFieldMatch[]>([])
-    let ocrText = $state('')
 
     let zoomPercent = $derived(Math.round(zoomLevel * 100))
     let activeScale = $derived(isHovering && zoomEnabled ? zoomLevel : 1)
-    let matchedCount = $derived(
-        ocrMatches.filter((match) => match.score >= MATCH_THRESHOLD).length
-    )
-    let matchedFields = $derived.by(() => {
-        const map = new Map<string, OcrFieldMatch>()
-        for (const match of ocrMatches) map.set(match.fieldName, match)
-        return map
-    })
-    let visibleMatches = $derived(
-        selectedFieldName
-            ? ocrMatches.filter(
-                  (match) =>
-                      match.fieldName === selectedFieldName &&
-                      match.score >= MATCH_THRESHOLD
-              )
-            : ocrMatches.filter((match) => match.score >= MATCH_THRESHOLD)
-    )
-
-    const MATCH_THRESHOLD = 0.6
-
-    type OcrBox = {
-        x0: number
-        y0: number
-        x1: number
-        y1: number
-    }
-
-    type OcrWord = {
-        text: string
-        confidence: number
-        bbox: OcrBox
-    }
-
-    type OcrFieldMatch = {
-        fieldName: string
-        fieldLabel: string
-        value: string
-        score: number
-        confidence: number
-        bbox: OcrBox | null
-        matchedText: string
-    }
 
     $effect(() => {
         if (zoomInitialized) return
@@ -131,154 +77,6 @@
 
     function setZoom(next: number) {
         zoomLevel = Math.min(4, Math.max(1.5, Number(next.toFixed(2))))
-    }
-
-    function normalizeTokens(value: string | null | undefined) {
-        return (value ?? '')
-            .toLowerCase()
-            .replace(/[^a-z0-9.%/]+/g, ' ')
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean)
-    }
-
-    function unionBox(words: OcrWord[]): OcrBox {
-        return {
-            x0: Math.min(...words.map((word) => word.bbox.x0)),
-            y0: Math.min(...words.map((word) => word.bbox.y0)),
-            x1: Math.max(...words.map((word) => word.bbox.x1)),
-            y1: Math.max(...words.map((word) => word.bbox.y1)),
-        }
-    }
-
-    function collectWords(page: Tesseract.Page): OcrWord[] {
-        const blocks = page.blocks ?? []
-        return blocks.flatMap((block) =>
-            block.paragraphs.flatMap((paragraph) =>
-                paragraph.lines.flatMap((line) =>
-                    line.words
-                        .filter((word) => normalizeTokens(word.text).length > 0)
-                        .map((word) => ({
-                            text: word.text,
-                            confidence: word.confidence,
-                            bbox: word.bbox,
-                        }))
-                )
-            )
-        )
-    }
-
-    function matchField(field: FieldResult, words: OcrWord[]): OcrFieldMatch {
-        const value = field.foundValue ?? ''
-        const targetTokens = normalizeTokens(value)
-        if (targetTokens.length === 0 || words.length === 0) {
-            return emptyMatch(field, value)
-        }
-
-        const ocrTokens = words.map(
-            (word) => normalizeTokens(word.text)[0] ?? ''
-        )
-        let best: OcrFieldMatch = emptyMatch(field, value)
-        const maxWindow = Math.min(Math.max(targetTokens.length + 2, 2), 14)
-
-        for (let start = 0; start < words.length; start += 1) {
-            for (
-                let length = 1;
-                length <= maxWindow && start + length <= words.length;
-                length += 1
-            ) {
-                const windowTokens = ocrTokens.slice(start, start + length)
-                const matched = targetTokens.filter((token) =>
-                    windowTokens.includes(token)
-                ).length
-                const score = matched / targetTokens.length
-                if (score <= best.score) continue
-
-                const windowWords = words.slice(start, start + length)
-                best = {
-                    fieldName: field.fieldName,
-                    fieldLabel: formatFieldName(field.fieldName),
-                    value,
-                    score,
-                    confidence:
-                        windowWords.reduce(
-                            (sum, word) => sum + word.confidence,
-                            0
-                        ) / windowWords.length,
-                    bbox: unionBox(windowWords),
-                    matchedText: windowWords.map((word) => word.text).join(' '),
-                }
-            }
-        }
-
-        return best
-    }
-
-    function emptyMatch(field: FieldResult, value: string): OcrFieldMatch {
-        return {
-            fieldName: field.fieldName,
-            fieldLabel: formatFieldName(field.fieldName),
-            value,
-            score: 0,
-            confidence: 0,
-            bbox: null,
-            matchedText: '',
-        }
-    }
-
-    async function runOcrMatch() {
-        if (!imagePreviewUrl || verificationFields.length === 0 || ocrRunning)
-            return
-        ocrRunning = true
-        ocrError = null
-        ocrProgress = 'Loading OCR engine...'
-        ocrMatches = []
-        try {
-            const worker = await Tesseract.createWorker('eng', 1, {
-                logger: (message) => {
-                    if (!message.status) return
-                    const pct = Number.isFinite(message.progress)
-                        ? ` ${Math.round(message.progress * 100)}%`
-                        : ''
-                    ocrProgress = `${message.status}${pct}`
-                },
-            })
-            await worker.setParameters({
-                tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
-            })
-            const { data } = await worker.recognize(imagePreviewUrl)
-            await worker.terminate()
-            ocrText = data.text
-            const words = collectWords(data)
-            const matches = verificationFields
-                .filter((field) => field.foundValue?.trim())
-                .map((field) => matchField(field, words))
-            ocrMatches = matches
-            ocrProgress = `Matched ${matches.filter((match) => match.score >= MATCH_THRESHOLD).length} of ${matches.length} fields`
-        } catch (err) {
-            ocrError =
-                err instanceof Error
-                    ? err.message
-                    : 'OCR matching failed in the browser'
-            ocrProgress = ''
-        } finally {
-            ocrRunning = false
-        }
-    }
-
-    function boxStyle(box: OcrBox) {
-        if (!previewFrame || !previewImage) return ''
-        const frame = previewFrame.getBoundingClientRect()
-        const image = previewImage.getBoundingClientRect()
-        const naturalWidth = previewImage.naturalWidth || image.width
-        const naturalHeight = previewImage.naturalHeight || image.height
-        const left =
-            image.left - frame.left + (box.x0 / naturalWidth) * image.width
-        const top =
-            image.top - frame.top + (box.y0 / naturalHeight) * image.height
-        const width = ((box.x1 - box.x0) / naturalWidth) * image.width
-        const height = ((box.y1 - box.y0) / naturalHeight) * image.height
-        return `left:${left}px;top:${top}px;width:${width}px;height:${height}px;`
     }
 </script>
 
@@ -345,18 +143,6 @@
                 </div>
                 <div class="flex items-center gap-2">
                     {#if imagePreviewUrl}
-                        <!-- {#if verificationFields.length > 0}
-                            <button
-                                type="button"
-                                class="h-7 rounded border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50"
-                                disabled={ocrRunning}
-                                onclick={runOcrMatch}
-                            >
-                                {ocrRunning
-                                    ? 'OCR running...'
-                                    : 'Run OCR match'}
-                            </button>
-                        {/if} -->
                         <button
                             type="button"
                             class="h-7 rounded border px-2.5 text-xs font-semibold transition-colors {zoomEnabled
@@ -402,58 +188,6 @@
                     {/if}
                 </div>
             </div>
-            <!-- {#if ocrProgress || ocrError || ocrMatches.length > 0}
-                <div
-                    class="mb-2 shrink-0 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs"
-                >
-                    <div
-                        class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between"
-                    >
-                        <div class="min-w-0">
-                            <p class="font-bold text-gray-900">
-                                OCR field matching
-                            </p>
-                            <p
-                                class="mt-0.5 truncate font-medium {ocrError
-                                    ? 'text-red-700'
-                                    : 'text-gray-600'}"
-                            >
-                                {ocrError ??
-                                    ocrProgress ??
-                                    'Run OCR to compare extracted values against image text.'}
-                            </p>
-                        </div>
-                        {#if ocrMatches.length > 0}
-                            <span
-                                class="shrink-0 rounded border border-gray-200 bg-gray-50 px-2 py-1 font-semibold text-gray-700"
-                            >
-                                {matchedCount} matched · {ocrMatches.length -
-                                    matchedCount} unmatched
-                            </span>
-                        {/if}
-                    </div>
-                    {#if ocrMatches.length > 0}
-                        <div
-                            class="mt-2 flex max-h-16 flex-wrap gap-1.5 overflow-auto"
-                        >
-                            {#each ocrMatches.slice(0, 10) as match (match.fieldName)}
-                                <span
-                                    class="rounded px-2 py-1 text-[11px] font-semibold {match.score >=
-                                    MATCH_THRESHOLD
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-gray-100 text-gray-600'}"
-                                    title={match.matchedText ||
-                                        'No OCR phrase matched'}
-                                >
-                                    {match.fieldLabel}: {Math.round(
-                                        match.score * 100
-                                    )}%
-                                </span>
-                            {/each}
-                        </div>
-                    {/if}
-                </div>
-            {/if} -->
             {#if !hideFileInput}
                 <input
                     type="file"
@@ -468,7 +202,6 @@
             {#if imagePreviewUrl}
                 <div class="flex min-h-0 flex-1 flex-col gap-2">
                     <div
-                        bind:this={previewFrame}
                         class="relative min-h-0 flex-1 w-full overflow-hidden rounded border border-gray-300 bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] cursor-default shadow-inner"
                         role="region"
                         aria-label="Label image preview. Inspect on hover can be toggled in the viewer toolbar."
@@ -484,31 +217,12 @@
                             style="transform: translate(-50%, -50%) scale({activeScale}); transform-origin: var(--zoom-origin); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; contain: paint;"
                         >
                             <img
-                                bind:this={previewImage}
                                 src={imagePreviewUrl}
                                 alt="Preview"
                                 style="display: block; max-width: 100%; max-height: 100%; object-fit: contain; user-select: none;"
                                 draggable="false"
                             />
                         </div>
-                        {#each visibleMatches as match (match.fieldName)}
-                            {#if match.bbox}
-                                <div
-                                    class="pointer-events-none absolute border-2 {selectedFieldName ===
-                                    match.fieldName
-                                        ? 'border-blue-600 bg-blue-500/10'
-                                        : 'border-amber-500 bg-amber-400/10'}"
-                                    style={boxStyle(match.bbox)}
-                                    title={match.fieldLabel}
-                                >
-                                    <span
-                                        class="absolute -top-6 left-0 max-w-40 truncate rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-gray-900 shadow"
-                                    >
-                                        {match.fieldLabel}
-                                    </span>
-                                </div>
-                            {/if}
-                        {/each}
                     </div>
                     <!-- {#if files.length > 1}
                         <div
