@@ -1,5 +1,5 @@
 import type { BatchLabelItem, VerificationResult } from '$shared/index'
-import type { ReviewDecisions } from './review-types'
+import type { ReviewDecisions } from './reviewTypes'
 
 export function exportSingleLabelCsv(
     result: VerificationResult,

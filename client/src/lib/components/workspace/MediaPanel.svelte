@@ -15,7 +15,6 @@
     }: {
         files: File[]
         imagePreviewUrl: string | null
-        selectedFileIndex: number | null
         workstation?: boolean
         blankState?: boolean
         hideFileInput?: boolean
@@ -99,23 +98,10 @@
                     <CardTitle class="{workstation ? 'text-sm' : 'text-base'} font-bold text-gray-950">
                         {blankState ? 'Add Label Image' : 'Label Image'}
                     </CardTitle>
-                    <p class="mt-1 truncate text-xs font-medium text-gray-500">
-                        {files.length > 1 ? `${files.length} labels` : imagePreviewUrl ? 'Single label' : 'Upload a label image'}
-                    </p>
                 </div>
-                {#if imagePreviewUrl}
-                    <button type="button" class="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onclick={() => document.getElementById('file-input-el')?.click()}>Change files</button>
-                {:else if blankState}
+                {#if blankState}
                     <FileTextIcon size={28} className="shrink-0 text-blue-700" />
                 {/if}
-            </div>
-        </CardHeader>
-
-        <CardContent class="{workstation ? 'p-2' : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden">
-            <div class="mb-4 flex h-10 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-3 text-xs text-gray-600">
-                <div class="flex items-center gap-2">
-                    <span class="font-bold text-gray-800">Document Viewer</span>
-                </div>
                 <div class="flex items-center gap-2">
                     {#if imagePreviewUrl}
                         <div class="flex h-7 items-center overflow-hidden rounded border border-gray-300 bg-white shadow-sm" aria-label="Inspect zoom controls">
@@ -128,6 +114,9 @@
                     {/if}
                 </div>
             </div>
+        </CardHeader>
+
+        <CardContent class="{workstation ? 'p-2' : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden">
             {#if !hideFileInput}
                 <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" onchange={onFileInput} id="file-input-el" />
             {/if}
@@ -139,7 +128,7 @@
                             <img bind:this={previewImage} src={imagePreviewUrl} alt="Preview" class="block max-h-full max-w-full select-none object-contain will-change-transform [--zoom-origin:50%_50%] {isHovering ? 'duration-0' : 'transition-transform duration-150 ease-out'}" style="transform: scale({activeScale}); transform-origin: var(--zoom-origin);" draggable="false" />
                         </div>
                     </div>
-                    <div class="flex shrink-0 items-center justify-between px-1">
+                    <!-- <div class="flex shrink-0 items-center justify-between px-1">
                         {#if files.length > 1}
                             <div class="flex flex-col gap-1">
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -156,7 +145,7 @@
                         {:else}
                             <span class="text-xs font-semibold uppercase text-gray-600">Single Label</span>
                         {/if}
-                    </div>
+                    </div> -->
                 </div>
             {:else}
                 <button type="button" class="flex min-h-[24rem] flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-gray-300 bg-white p-10 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" aria-label="Add label images" onclick={() => document.getElementById('file-input-el')?.click()}>

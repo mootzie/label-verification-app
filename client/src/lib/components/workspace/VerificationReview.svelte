@@ -1,13 +1,15 @@
 <script lang="ts">
     import { Badge } from '$lib/components/ui/badge'
     import { Button } from '$lib/components/ui/button'
-    import { formatFieldName, STATUS_LABEL } from '$lib/utils/compliance-logic'
-    import type { ReviewDecision, ReviewDecisions } from '$lib/utils/review-types'
+    import { formatFieldName, STATUS_LABEL } from '$lib/utils/complianceLogic'
+    import type { ReviewDecision, ReviewDecisions } from '$lib/utils/reviewTypes'
     import type { FieldResult, FieldStatus, VerificationResult } from '$shared/index'
-    import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverage-fields'
-    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverage-fields'
+    import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverageFields'
+    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverageFields'
     import ApplicationDataSummaryDrawer from './ApplicationDataSummaryDrawer.svelte'
     import type { ApplicationFormValues } from './ApplicationDataInput.svelte'
+    import DragBar from '../ui/icon/DragBar.svelte'
+    import { REVIEW_STATE_UI, FIELD_TONE_UI, GOVERNMENT_WARNING_REQUIRED, LOADING_STEPS, resizeColumns, handleColumnResizeKeydown } from '$lib/utils/verificationReview'
 
     const DEFAULT_APPLICATION_DATA: ApplicationFormValues = {
         beverageType: 'distilled_spirits',
@@ -40,96 +42,10 @@
         onMarkAllReviewed?: (decisions: ReviewDecisions) => void
     }
 
-    let { result, loading, comparing = false, error, mode = 'body', applicationData = DEFAULT_APPLICATION_DATA, onSelectedFieldChange, onExport, onMarkAllReviewed }: VerificationReviewProps = $props()
-
-    const GOVERNMENT_WARNING_REQUIRED = 'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.'
-    const LOADING_STEPS = ['Reading label...', 'Extracting fields...', 'Checking rules...', 'Preparing review table...']
     type ReviewStateKey = 'loading' | 'comparing' | 'error' | 'ready' | 'extracted' | 'approved' | 'warning' | 'rejected'
     type FieldToneKey = FieldStatus | 'neutral'
 
-    const REVIEW_STATE_UI: Record<ReviewStateKey, { title: string; summary: string; className: string; badgeLabel: string; badgeDetail: string; badgeClass: string; dotClass: string }> = {
-        loading: {
-            title: 'Reading Label...',
-            summary: 'Please wait while we ready the label image.',
-            className: 'border-blue-200 bg-blue-50 text-blue-950',
-            badgeLabel: 'Processing',
-            badgeDetail: 'Reading label image',
-            badgeClass: 'border-blue-200 bg-blue-50 text-blue-800',
-            dotClass: 'bg-blue-500',
-        },
-        comparing: {
-            title: 'Comparing...',
-            summary: 'Comparing label against application data...',
-            className: 'border-blue-200 bg-blue-50 text-blue-950',
-            badgeLabel: 'Comparing',
-            badgeDetail: 'Checking application values',
-            badgeClass: 'border-blue-200 bg-blue-50 text-blue-800',
-            dotClass: 'bg-blue-500',
-        },
-        error: {
-            title: 'Error',
-            summary: 'Could not complete verification.',
-            className: 'border-red-200 bg-red-50 text-red-950',
-            badgeLabel: 'Error',
-            badgeDetail: 'Could not complete',
-            badgeClass: 'border-red-200 bg-red-50 text-red-800',
-            dotClass: 'bg-red-500',
-        },
-        ready: {
-            title: 'Ready',
-            summary: 'Upload a label image to extract fields automatically',
-            className: 'border-gray-200 bg-white text-gray-900',
-            badgeLabel: 'Not verified',
-            badgeDetail: 'Awaiting label',
-            badgeClass: 'border-gray-200 bg-white text-gray-600',
-            dotClass: 'bg-gray-400',
-        },
-        extracted: {
-            title: 'Label Extracted',
-            summary: 'Fields extracted from label. Add application data below to compare.',
-            className: 'border-blue-200 bg-blue-50 text-blue-950',
-            badgeLabel: 'Extracted',
-            badgeDetail: 'Complete',
-            badgeClass: 'border-blue-200 bg-blue-50 text-blue-800',
-            dotClass: 'bg-blue-500',
-        },
-        approved: {
-            title: 'Approved',
-            summary: 'All checked fields passed',
-            className: 'border-green-200 bg-green-50 text-green-950',
-            badgeLabel: 'Verified',
-            badgeDetail: 'Complete',
-            badgeClass: 'border-green-200 bg-green-50 text-green-800',
-            dotClass: 'bg-green-500',
-        },
-        warning: {
-            title: 'Review Required',
-            summary: 'Potential issues found',
-            className: 'border-amber-200 bg-amber-50 text-amber-950',
-            badgeLabel: 'Review required',
-            badgeDetail: 'Complete',
-            badgeClass: 'border-amber-200 bg-amber-50 text-amber-800',
-            dotClass: 'bg-amber-500',
-        },
-        rejected: {
-            title: 'Rejected',
-            summary: 'Verification failed',
-            className: 'border-red-200 bg-red-50 text-red-950',
-            badgeLabel: 'Failed verification',
-            badgeDetail: 'Complete',
-            badgeClass: 'border-red-200 bg-red-50 text-red-800',
-            dotClass: 'bg-red-500',
-        },
-    }
-
-    const FIELD_TONE_UI: Record<FieldToneKey, { glyph: string; accentClass: string; accentColor: string }> = {
-        pass: { glyph: '✓', accentClass: 'bg-green-500', accentColor: '#22c55e' },
-        warning: { glyph: '!', accentClass: 'bg-amber-500', accentColor: '#f59e0b' },
-        fail: { glyph: '×', accentClass: 'bg-red-500', accentColor: '#ef4444' },
-        not_found: { glyph: '—', accentClass: 'bg-gray-400', accentColor: '#9ca3af' },
-        neutral: { glyph: '—', accentClass: 'bg-gray-400', accentColor: '#9ca3af' },
-    }
-
+    let { result, loading, comparing = false, error, mode = 'body', applicationData = DEFAULT_APPLICATION_DATA, onSelectedFieldChange, onExport, onMarkAllReviewed }: VerificationReviewProps = $props()
     let selectedFieldName = $state<string | null>(null)
     let expandedFields = $state<Record<string, boolean>>({})
     let agentComments = $state<Record<string, string>>({})
@@ -138,7 +54,6 @@
     let verificationCompletedAt = $state<Date | null>(null)
     let _completionResultRef = $state<VerificationResult | null>(null)
     let columnWidths = $state([20, 34, 31, 15])
-    const minColumnWidths = [14, 22, 22, 8]
 
     let fieldDefMap = $derived.by(() => {
         const map = new Map<string, BeverageFieldDef>()
@@ -158,8 +73,12 @@
         return keys
     })
 
+    let _lastResultRef = $state<VerificationResult | null>(null)
     let visibleFields = $derived(result?.fields.filter((f) => validResultKeys.has(f.fieldName)) ?? [])
+    let isExtractionOnly = $derived(result !== null && visibleFields.length > 0 && visibleFields.every((f) => f.expectedValue == null))
+    let issueFields = $derived(visibleFields.filter((f) => f.status !== 'pass'))
     let skeletonRowCount = $derived(result && (loading || comparing) ? Math.max(0, validResultKeys.size - visibleFields.length) : 0)
+    let governmentWarning = $derived(result?.fields.find((f) => f.fieldName === 'governmentWarning') ?? null)
 
     $effect(() => {
         if (result !== _completionResultRef) {
@@ -173,8 +92,6 @@
         }
     })
 
-    // Reset decisions when result reference changes (new label loaded)
-    let _lastResultRef = $state<VerificationResult | null>(null)
     $effect(() => {
         if (result !== _lastResultRef) {
             decisions = {}
@@ -190,26 +107,9 @@
         }
     })
 
-    let issueFields = $derived(visibleFields.filter((f) => f.status !== 'pass'))
-    let statusCounts = $derived.by(() => ({
-        pass: visibleFields.filter((f) => f.status === 'pass').length,
-        warning: visibleFields.filter((f) => f.status === 'warning').length,
-        fail: visibleFields.filter((f) => f.status === 'fail').length,
-        notFound: visibleFields.filter((f) => f.status === 'not_found').length,
-    }))
-
-    let isExtractionOnly = $derived(result !== null && visibleFields.length > 0 && visibleFields.every((f) => f.expectedValue == null))
-
-    let selectedField = $derived.by(() => {
-        if (!result) return null
-        const preferred = selectedFieldName ? visibleFields.find((f) => f.fieldName === selectedFieldName) : null
-        return preferred ?? issueFields[0] ?? visibleFields[0] ?? null
-    })
-
-    let governmentWarning = $derived(result?.fields.find((f) => f.fieldName === 'governmentWarning') ?? null)
-
     $effect(() => {
         if (mode !== 'body') return
+
         if (!result || visibleFields.length === 0) {
             selectedFieldName = null
             onSelectedFieldChange?.(null)
@@ -222,6 +122,19 @@
         }
     })
 
+    let statusCounts = $derived.by(() => ({
+        pass: visibleFields.filter((f) => f.status === 'pass').length,
+        warning: visibleFields.filter((f) => f.status === 'warning').length,
+        fail: visibleFields.filter((f) => f.status === 'fail').length,
+        notFound: visibleFields.filter((f) => f.status === 'not_found').length,
+    }))
+
+    let selectedField = $derived.by(() => {
+        if (!result) return null
+        const preferred = selectedFieldName ? visibleFields.find((f) => f.fieldName === selectedFieldName) : null
+        return preferred ?? issueFields[0] ?? visibleFields[0] ?? null
+    })
+
     const selectField = (field: FieldResult) => {
         selectedFieldName = field.fieldName
         onSelectedFieldChange?.(field.fieldName)
@@ -230,26 +143,13 @@
     const toggleExpanded = (field: FieldResult) => {
         selectField(field)
         expandedFields = {
-            ...expandedFields,
+            ...(expandedFields ?? {}),
             [field.fieldName]: !expandedFields[field.fieldName],
         }
     }
 
     const setAgentComment = (fieldName: string, value: string) => {
-        agentComments = { ...agentComments, [fieldName]: value }
-    }
-
-    const resizeColumns = (boundaryIndex: number, deltaPercent: number, commit = true) => {
-        const next = [...columnWidths]
-        const left = next[boundaryIndex]
-        const right = next[boundaryIndex + 1]
-        const minLeft = minColumnWidths[boundaryIndex]
-        const minRight = minColumnWidths[boundaryIndex + 1]
-        const allowedDelta = Math.max(minLeft - left, Math.min(deltaPercent, right - minRight))
-        next[boundaryIndex] = Number((left + allowedDelta).toFixed(2))
-        next[boundaryIndex + 1] = Number((right - allowedDelta).toFixed(2))
-        if (commit) columnWidths = next
-        return next
+        agentComments = { ...(agentComments ?? {}), [fieldName]: value }
     }
 
     const startColumnResize = (boundaryIndex: number, event: PointerEvent) => {
@@ -265,7 +165,7 @@
         const handleMove = (moveEvent: PointerEvent) => {
             const deltaPercent = ((moveEvent.clientX - startX) / tableWidth) * 100
             columnWidths = startWidths
-            resizeColumns(boundaryIndex, deltaPercent)
+            resizeColumns(boundaryIndex, deltaPercent, true, columnWidths)
         }
 
         const handleUp = () => {
@@ -277,20 +177,11 @@
         window.addEventListener('pointerup', handleUp, { once: true })
     }
 
-    const handleColumnResizeKeydown = (boundaryIndex: number, event: KeyboardEvent) => {
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-        event.preventDefault()
-        event.stopPropagation()
-        resizeColumns(boundaryIndex, event.key === 'ArrowRight' ? 2 : -2)
-    }
-
-    const decisionFor = (fieldName: string): ReviewDecision => {
-        return decisions[fieldName] ?? 'unreviewed'
-    }
-
-    const setDecision = (fieldName: string, decision: ReviewDecision) => {
-        decisions = { ...decisions, [fieldName]: decision }
-    }
+    const fieldTone = (field: FieldResult) => FIELD_TONE_UI[fieldToneKey(field)]
+    const decisionFor = (fieldName: string): ReviewDecision => decisions[fieldName] ?? 'unreviewed'
+    const setDecision = (fieldName: string, decision: ReviewDecision) => (decisions = { ...decisions, [fieldName]: decision })
+    const normalizedWarning = (value: string | null | undefined) => (value || '').replace(/\s+/g, ' ').trim()
+    const governmentWarningTextClass = (value: string | null | undefined) => (governmentWarningTextLabel(value) === 'Exact wording' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')
 
     const handleMarkAllReviewed = () => {
         const unresolved = issueFields.filter((f) => !decisions[f.fieldName] || decisions[f.fieldName] === 'unreviewed')
@@ -306,12 +197,14 @@
 
     let reviewStateKey = $derived.by<ReviewStateKey>(() => {
         if (loading) return 'loading'
-        if (comparing && result) return 'comparing'
         if (error) return 'error'
         if (!result) return 'ready'
+        if (comparing && result) return 'comparing'
+
         if (isExtractionOnly) return 'extracted'
         if (result.overallStatus === 'pass') return 'approved'
         if (result.overallStatus === 'warning') return 'warning'
+
         return 'rejected'
     })
 
@@ -328,8 +221,6 @@
         if (isExtractionOnly || isOptionalNotFound(field)) return 'neutral'
         return field.status
     }
-
-    const fieldTone = (field: FieldResult) => FIELD_TONE_UI[fieldToneKey(field)]
 
     const displayValue = (value: string | null | undefined) => {
         const trimmed = value?.trim()
@@ -361,31 +252,12 @@
         return `${(result.processingTimeMs / 1000).toFixed(1)}s`
     }
 
-    const completedAtText = () =>
-        verificationCompletedAt?.toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit',
-        }) ?? null
-
-    let verificationBadgeDetail = $derived.by(() => {
-        if (!result || loading || comparing || error) return reviewState.badgeDetail
-        const detailParts: string[] = []
-        const completedAt = completedAtText()
-        if (completedAt) detailParts.push(completedAt)
-        if (processingTimeText() !== '—') detailParts.push(processingTimeText())
-        return detailParts.length > 0 ? detailParts.join(' · ') : reviewState.badgeDetail
-    })
-
     const reviewNote = (field: FieldResult) => {
         if (field.notes) return field.notes
         if (field.status === 'pass') return 'Exact match. No action needed.'
         if (field.status === 'warning') return 'Minor variation detected. Review before approval.'
         if (field.status === 'fail') return 'Application value does not match the label value.'
         return 'Text was not found on the label.'
-    }
-
-    const normalizedWarning = (value: string | null | undefined) => {
-        return (value || '').replace(/\s+/g, ' ').trim()
     }
 
     const governmentWarningHeaderLabel = (value: string | null | undefined) => {
@@ -408,15 +280,13 @@
         return normalizedWarning(value) === normalizedWarning(GOVERNMENT_WARNING_REQUIRED) ? 'Exact wording' : 'Wording differs'
     }
 
-    const governmentWarningTextClass = (value: string | null | undefined) => (governmentWarningTextLabel(value) === 'Exact wording' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')
-
     const isOptionalNotFound = (field: FieldResult): boolean => {
         const def = fieldDefMap.get(field.fieldName)
         return !!def && (def.requirement === 'if_applicable' || def.requirement === 'imports_only') && !field.foundValue && (field.status === 'not_found' || field.status === 'pass')
     }
 
     const showGovernmentDetails = (field: FieldResult) => {
-        return field.fieldName === 'governmentWarning' || (governmentWarning !== null && governmentWarning.status !== 'pass' && selectedField?.fieldName === field.fieldName)
+        return field.fieldName === 'governmentWarning' && governmentWarning !== null && governmentWarning.status !== 'pass' && selectedField?.fieldName === field.fieldName
     }
 </script>
 
@@ -473,28 +343,26 @@
     <section class="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-gray-300 bg-white shadow-sm">
         <div class="flex shrink-0 flex-col gap-3 border-b border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
-                <h2 class="panel-title">Verification Results</h2>
-
-                <p class="text-[11px] font-medium text-gray-500">
-                    {#if result}
-                        {tableSummary()}
-                    {:else}
-                        Results appear after verification
-                    {/if}
-                </p>
-            </div>
-            <div class="flex shrink-0 flex-wrap items-center gap-2">
-                <div class="inline-flex min-w-[10.5rem] items-center gap-2 rounded-md border px-2.5 py-1.5 shadow-sm {reviewState.badgeClass}" role="status" aria-live="polite">
-                    <span class="h-2.5 w-2.5 shrink-0 rounded-full {reviewState.dotClass}"></span>
-                    <span class="min-w-0">
+                <div class="flex flex gap-2 items-center">
+                    <h2 class="panel-title">Verification Results</h2>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <p class="text-[11px] font-medium text-gray-500">
+                        {#if result}
+                            {tableSummary()}
+                        {:else}
+                            Results appear after verification
+                        {/if}
+                    </p>
+                    <div class="flex items-center gap-2 rounded-md border px-2.5 py-1.5 {reviewState.badgeClass}" role="status" aria-live="polite">
+                        <span class="h-2.5 w-2.5 shrink-0 rounded-full {reviewState.dotClass}"></span>
                         <span class="block text-xs font-bold leading-4">
                             {reviewState.badgeLabel}
                         </span>
-                        <span class="block text-[11px] font-medium leading-4">
-                            {verificationBadgeDetail}
-                        </span>
-                    </span>
+                    </div>
                 </div>
+            </div>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" class="h-8" disabled={!result} onclick={() => result && onExport?.(decisions)}>Export</Button>
             </div>
         </div>
@@ -522,21 +390,13 @@
                                 <th class="relative px-3 py-2">
                                     Field
                                     <button type="button" aria-label="Resize Field column" class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none" onpointerdown={(event) => startColumnResize(0, event)} onkeydown={(event) => handleColumnResizeKeydown(0, event)}>
-                                        <span class="flex flex-col gap-[3px]" aria-hidden="true">
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                        </span>
+                                        <DragBar />
                                     </button>
                                 </th>
                                 <th class="relative px-3 py-2">
                                     Label (extracted)
                                     <button type="button" aria-label="Resize Label extracted column" class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none" onpointerdown={(event) => startColumnResize(1, event)} onkeydown={(event) => handleColumnResizeKeydown(1, event)}>
-                                        <span class="flex flex-col gap-[3px]" aria-hidden="true">
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                        </span>
+                                        <DragBar />
                                     </button>
                                 </th>
                                 <th class="relative px-3 py-2">
@@ -545,11 +405,7 @@
                                         <span class="mt-0.5 block text-[11px] font-medium italic text-gray-400">No application data — extraction only</span>
                                     {/if}
                                     <button type="button" aria-label="Resize Application provided column" class="group absolute bottom-0 right-0 top-0 z-20 flex w-3 cursor-col-resize items-center justify-center border-0 border-r border-gray-300 bg-transparent p-0 hover:border-blue-500 focus:border-blue-600 focus:outline-none" onpointerdown={(event) => startColumnResize(2, event)} onkeydown={(event) => handleColumnResizeKeydown(2, event)}>
-                                        <span class="flex flex-col gap-[3px]" aria-hidden="true">
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                            <span class="h-0.5 w-0.5 rounded-full bg-gray-400 group-hover:bg-blue-500 group-focus:bg-blue-600"></span>
-                                        </span>
+                                        <DragBar />
                                     </button>
                                 </th>
                                 <th class="px-3 py-2">Status</th>
@@ -593,7 +449,7 @@
                                             {:else}
                                                 <Badge variant={rowStatusVariant(field)} class="h-6 w-24 justify-center gap-1 border-0 px-2 text-[11px]">
                                                     <span aria-hidden="true">
-                                                            {fieldTone(field).glyph}
+                                                        {fieldTone(field).glyph}
                                                     </span>
                                                     {rowStatusLabel(field)}
                                                 </Badge>

@@ -4,7 +4,7 @@
     import { Badge } from '$lib/components/ui/badge'
     import { Button } from '$lib/components/ui/button'
     import { QueueIcon } from '$lib/components/ui/icon'
-    import { BATCH_STATUS_VARIANT, STATUS_LABEL } from '$lib/utils/compliance-logic'
+    import { BATCH_STATUS_VARIANT, STATUS_LABEL } from '$lib/utils/complianceLogic'
     import type { BatchLabelItem } from '$shared/index'
 
     let {

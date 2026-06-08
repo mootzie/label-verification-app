@@ -1,9 +1,11 @@
 <script lang="ts">
     import { tick } from 'svelte'
     import { Button } from '$lib/components/ui/button'
-    import { parseSmartPaste } from '$lib/utils/application-builder'
-    import { CLASS_TYPE_OPTIONS, BEVERAGE_FIELD_SETS } from '$lib/utils/beverage-fields'
-    import type { BeverageType, BeverageFieldDef, FieldRequirement } from '$lib/utils/beverage-fields'
+    import { parseSmartPaste } from '$lib/utils/applicationBuilder'
+    import { CLASS_TYPE_OPTIONS, BEVERAGE_FIELD_SETS } from '$lib/utils/beverageFields'
+    import { isInputFormKey, PLACEHOLDERS } from '$lib/utils/applicationDataInput'
+
+    import type { BeverageType, BeverageFieldDef } from '$lib/utils/beverageFields'
 
     type InputFormKey = Exclude<BeverageFieldDef['formKey'], 'name_address' | 'health_warning'>
 
@@ -55,6 +57,10 @@
         }
     })
 
+    const getVal = (key: BeverageFieldDef['formKey']): string => (isInputFormKey(key) ? values[key] : '')
+    const setVal = (key: BeverageFieldDef['formKey'], value: string) => isInputFormKey(key) && (values[key] = value)
+    const handleKeydown = (e: KeyboardEvent) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && tryParse()
+
     const matchClassType = (raw: string, options: string[]): string => {
         if (!raw) return ''
 
@@ -76,62 +82,32 @@
     let fieldSet = $derived.by(() => BEVERAGE_FIELD_SETS[values.beverageType] ?? [])
     let textarea = $state<HTMLTextAreaElement | null>(null)
 
-    const INPUT_FORM_KEYS = ['brandName', 'classType', 'alcoholContent', 'netContents', 'countryOfOrigin', 'appellation', 'ageStatement', 'colorDisclosures', 'commodityStatement', 'sulfiteDeclaration', 'foreignWinePct', 'colorAdditives', 'aspartameDeclaration'] as const satisfies readonly InputFormKey[]
-
-    const isInputFormKey = (key: BeverageFieldDef['formKey']): key is InputFormKey => {
-        return INPUT_FORM_KEYS.includes(key as InputFormKey)
-    }
-
-    const getVal = (key: BeverageFieldDef['formKey']): string => {
-        return isInputFormKey(key) ? values[key] : ''
-    }
-
-    const setVal = (key: BeverageFieldDef['formKey'], value: string) => {
-        if (isInputFormKey(key)) values[key] = value
-    }
-
-    const PLACEHOLDERS: Partial<Record<BeverageFieldDef['formKey'], string>> = {
-        brandName: 'e.g. Old Tom Distillery',
-        alcoholContent: 'e.g. 45% Alc./Vol.',
-        netContents: 'e.g. 750 mL',
-        countryOfOrigin: 'Required for imports',
-        appellation: 'e.g. Napa Valley',
-        ageStatement: 'e.g. Aged 4 Years',
-        colorDisclosures: 'e.g. Artificially Colored',
-        commodityStatement: 'e.g. 100% Grain Neutral Spirits',
-        sulfiteDeclaration: 'e.g. Contains Sulfites',
-        foreignWinePct: 'e.g. 25% foreign wine',
-        colorAdditives: 'e.g. Colored with FD&C Red 40',
-        aspartameDeclaration: 'e.g. Contains Aspartame',
-    }
-
     const tryParse = () => {
         const r = parseSmartPaste(pasteText)
-        const count = Object.values(r).filter((v) => v !== null && v !== '').length
+        const count = Object.values(r ?? {}).filter((v) => v !== null && v !== '')?.length || 0
         if (count === 0) {
             parseError = true
-            parsedCount = 0
+            parsedCount = count
             return
         }
+
         parseError = false
         parsedCount = count
-        if (r.brandName && !values.brandName) values.brandName = r.brandName
-        if (r.producerName && !values.producerName) values.producerName = r.producerName
-        if (r.producerAddress && !values.producerAddress) values.producerAddress = r.producerAddress
-        if (r.countryOfOrigin && !values.countryOfOrigin) values.countryOfOrigin = r.countryOfOrigin
-        if (r.beverageType && !values.beverageType) values.beverageType = r.beverageType as BeverageType
+
+        const fields = ['brandName', 'producerName', 'producerAddress', 'countryOfOrigin', 'alcoholContent', 'netContents', 'beverageType'] as const
+        for (const field of fields) {
+            if (r[field] && !values[field]) {
+                if (field === 'beverageType') values[field] = r[field] as BeverageType
+                else values[field] = r[field]
+            }
+        }
+
         if (r.classType && !values.classType) {
             const opts = CLASS_TYPE_OPTIONS[values.beverageType] ?? []
             const matched = matchClassType(r.classType, opts)
             if (matched) values.classType = matched
         }
-        if (r.alcoholContent && !values.alcoholContent) values.alcoholContent = r.alcoholContent
-        if (r.netContents && !values.netContents) values.netContents = r.netContents
         showPaste = false
-    }
-
-    const handleKeydown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) tryParse()
     }
 </script>
 

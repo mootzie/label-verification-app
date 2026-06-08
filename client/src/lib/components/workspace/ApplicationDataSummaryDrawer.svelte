@@ -1,7 +1,7 @@
 <script lang="ts">
     import { ChevronDownIcon, InfoIcon } from '$lib/components/ui/icon'
-    import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverage-fields'
-    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverage-fields'
+    import { BEVERAGE_FIELD_SETS } from '$lib/utils/beverageFields'
+    import type { BeverageFieldDef, BeverageType } from '$lib/utils/beverageFields'
     import type { FieldResult } from '$shared/index'
     import type { ApplicationFormValues } from './ApplicationDataInput.svelte'
 
@@ -85,13 +85,8 @@
         return [rows.slice(0, midpoint), rows.slice(midpoint)]
     })
 
-    const isApplicationValueKey = (key: BeverageFieldDef['formKey']): key is ApplicationValueKey => {
-        return APPLICATION_VALUE_KEYS.includes(key as ApplicationValueKey)
-    }
-
-    const fieldValue = (key: BeverageFieldDef['formKey']) => {
-        return isApplicationValueKey(key) ? fieldValues[key] : ''
-    }
+    const isApplicationValueKey = (key: BeverageFieldDef['formKey']): key is ApplicationValueKey => APPLICATION_VALUE_KEYS.includes(key as ApplicationValueKey)
+    const fieldValue = (key: BeverageFieldDef['formKey']) => (isApplicationValueKey(key) ? fieldValues[key] : '')
 
     const displayValue = (value: string, resultKey: string) => {
         const trimmed = value.trim()

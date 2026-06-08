@@ -13,13 +13,13 @@
     import BatchQueue from '$lib/components/workspace/BatchQueue.svelte'
     import VerificationReview from '$lib/components/workspace/VerificationReview.svelte'
 
-    import { parseSmartPaste, buildOptionalApplicationData } from '$lib/utils/application-builder'
-    import { resizeForUpload } from '$lib/utils/image-resize'
+    import { parseSmartPaste, buildOptionalApplicationData } from '$lib/utils/applicationBuilder'
+    import { resizeForUpload } from '$lib/utils/imageResize'
     import { setupGlobalDragAndDrop, setupCtrlVHandler } from '$lib/utils/globalDragAndDrop'
-    import { DEMO_SCENARIOS, DEMO_BULK } from '$lib/utils/debug-mocks'
-    import type { DemoScenario } from '$lib/utils/debug-mocks'
+    import { DEMO_SCENARIOS, DEMO_BULK } from '$lib/utils/debugMocks'
+    import type { DemoScenario } from '$lib/utils/debugMocks'
     import { exportBatchCsv, exportSingleLabelCsv } from '$lib/utils/export'
-    import type { ReviewDecisions } from '$lib/utils/review-types'
+    import type { ReviewDecisions } from '$lib/utils/reviewTypes'
     import DragAndDrop from '$lib/components/ui/dragAndDrop/DragAndDrop.svelte'
     import type { ApplicationFormValues } from '$lib/components/workspace/ApplicationDataInput.svelte'
 
@@ -588,7 +588,7 @@
                 <Button variant="outline" size="sm" class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onclick={() => (showDemoPanel = !showDemoPanel)}>Load Demo</Button>
                 {#if showDemoPanel}
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
+                    <div class="absolute right-0 top-full z-50 mt-1 w-xl rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
                         <div class="border-b border-gray-100 px-3 py-2">
                             <p class="text-xs font-semibold text-gray-700">Demo Scenarios</p>
                             <div class="mt-1 flex items-center gap-3 text-xs text-gray-500">
@@ -603,7 +603,7 @@
                                 </span>
                             </div>
                         </div>
-                        <ul class="py-1">
+                        <ul class="py-1 divide-y">
                             {#each DEMO_SCENARIOS as scenario (scenario.id)}
                                 <li class="flex items-center gap-1 px-2 py-1.5">
                                     <span class="h-2 w-2 shrink-0 rounded-full {scenario.status === 'pass' ? 'bg-green-500' : scenario.status === 'warning' ? 'bg-amber-400' : 'bg-red-500'}" aria-hidden="true"></span>
