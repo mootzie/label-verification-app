@@ -1,1 +1,0 @@
-import{a as i,f as s}from"../chunks/RnfSjAcc.js";import{g as t,i as n}from"../chunks/CaNPQU-j.js";import{s as d}from"../chunks/BI9AuvuS.js";var m=s('<div class="h-screen overflow-hidden bg-gray-50"><!></div>');function c(r,a){var o=m(),e=t(o);d(e,()=>a.children),n(o),i(r,o)}export{c as component};
