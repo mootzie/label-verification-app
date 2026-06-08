@@ -6,10 +6,8 @@ dist/
 CLAUDE.md
 HANDOFF.md
 notes.md
-readme.md
 TESTS.md
 test-images/
-*.md
 *.md.bak
 **/.vercel/
 
