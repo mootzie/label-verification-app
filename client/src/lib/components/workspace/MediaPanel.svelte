@@ -145,19 +145,25 @@
                     {#if imagePreviewUrl}
                         <button
                             type="button"
-                            class="h-7 rounded border px-2.5 text-xs font-semibold transition-colors {zoomEnabled
-                                ? 'border-gray-300 bg-white text-gray-800 shadow-sm'
-                                : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-white'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                            class="inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-xs font-semibold shadow-sm transition-colors {zoomEnabled
+                                ? 'border-blue-300 bg-blue-50 text-blue-800'
+                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                             aria-pressed={zoomEnabled}
                             onclick={() => (zoomEnabled = !zoomEnabled)}
                         >
-                            <div class="flex items-center gap-2">
-                                Inspect {#if zoomEnabled}<div
-                                        class="h-1.5 w-1.5 mt-0.5 bg-green-500 rounded-full"
-                                    ></div>{:else}<div
-                                        class="h-1.5 w-1.5 mt-0.5 bg-red-500 rounded-full"
-                                    ></div>{/if}
-                            </div>
+                            <span>Inspect</span>
+                            <span
+                                class="relative h-3.5 w-6 rounded-full transition-colors {zoomEnabled
+                                    ? 'bg-blue-600'
+                                    : 'bg-gray-300'}"
+                                aria-hidden="true"
+                            >
+                                <span
+                                    class="absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform {zoomEnabled
+                                        ? 'translate-x-3'
+                                        : 'translate-x-0.5'}"
+                                ></span>
+                            </span>
                         </button>
                         <div
                             class="flex h-7 items-center overflow-hidden rounded border border-gray-300 bg-white shadow-sm"

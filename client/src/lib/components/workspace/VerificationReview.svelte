@@ -118,6 +118,12 @@
         result?.fields.filter((f) => validResultKeys.has(f.fieldName)) ?? []
     )
 
+    let skeletonRowCount = $derived(
+        result && (loading || comparing)
+            ? Math.max(0, validResultKeys.size - visibleFields.length)
+            : 0
+    )
+
     // Reset decisions when result reference changes (new label loaded)
     let _lastResultRef = $state<VerificationResult | null>(null)
     $effect(() => {
@@ -610,7 +616,7 @@
                     Comparing with application data…
                 </div>
             {/if}
-            {#if result.fields.length === 0}
+            {#if result.fields.length === 0 && !loading && !comparing}
                 <div
                     class="flex min-h-0 flex-1 items-center justify-center p-5 text-sm font-medium text-gray-600"
                 >
@@ -618,9 +624,9 @@
                     review the API response.
                 </div>
             {:else}
-                <div class="min-h-0 flex-1 overflow-auto">
+                <div class="min-h-0 flex-1 overflow-auto bg-white">
                     <table
-                        class="w-full min-w-[760px] table-fixed text-left text-sm"
+                        class="h-full w-full min-w-[760px] table-fixed text-left text-sm"
                     >
                         <colgroup>
                             {#each columnWidths as width}
@@ -1047,6 +1053,58 @@
                                         </td>
                                     </tr>
                                 {/if}
+                            {/each}
+                            {#each Array(skeletonRowCount) as _, index}
+                                <tr
+                                    class="h-[4.25rem] bg-white"
+                                    aria-hidden="true"
+                                >
+                                    <td class="px-3 py-2 align-middle">
+                                        <div
+                                            class="flex items-center gap-2"
+                                        >
+                                            <span
+                                                class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-sm bg-gray-200"
+                                            ></span>
+                                            <span
+                                                class="h-3 animate-pulse rounded bg-gray-200 {index %
+                                                    3 ===
+                                                0
+                                                    ? 'w-24'
+                                                    : 'w-32'}"
+                                            ></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 align-middle">
+                                        <div class="space-y-2">
+                                            <div
+                                                class="h-3 animate-pulse rounded bg-gray-100 {index %
+                                                    2 ===
+                                                0
+                                                    ? 'w-40'
+                                                    : 'w-56'}"
+                                            ></div>
+                                            <div
+                                                class="h-3 w-28 animate-pulse rounded bg-gray-100"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 align-middle">
+                                        <div class="space-y-2">
+                                            <div
+                                                class="h-3 w-44 animate-pulse rounded bg-gray-100"
+                                            ></div>
+                                            <div
+                                                class="h-3 w-24 animate-pulse rounded bg-gray-100"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 align-middle">
+                                        <div
+                                            class="h-6 w-24 animate-pulse rounded-full bg-gray-100"
+                                        ></div>
+                                    </td>
+                                </tr>
                             {/each}
                         </tbody>
                     </table>

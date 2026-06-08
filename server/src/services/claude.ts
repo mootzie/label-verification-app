@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
-
-type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+import type { ImageMediaType } from "../types/index";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -185,4 +184,3 @@ export async function callClaudeVision(
   return block.text;
 }
 
-export type { ImageMediaType };

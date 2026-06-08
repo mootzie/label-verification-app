@@ -6,7 +6,7 @@ import { upload } from "../middleware/upload";
 import { setBatchJob, getBatchJob } from "../services/redis";
 import { processBatch } from "../services/batchProcessor";
 import type { BatchJob, BatchLabelItem } from "../types/index";
-import type { ImageMediaType } from "../services/claude";
+import type { ImageMediaType } from "../types/index";
 
 function withMulter(req: Request, res: Response, next: NextFunction) {
   upload.array("images", 50)(req, res, (err: unknown) => {

@@ -1,3 +1,9 @@
+export type ImageMediaType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "image/gif";
+
 export type FieldStatus = "pass" | "warning" | "fail" | "not_found";
 
 export interface FieldResult {
@@ -44,6 +50,14 @@ export interface LabelApplication {
 export type LabelApplicationInput = Partial<LabelApplication>;
 
 export type BatchJobStatus = "pending" | "processing" | "complete" | "failed";
+
+export interface LabelInput {
+  labelId: string;
+  filename: string;
+  imageBase64: string;
+  mediaType: ImageMediaType;
+  application: LabelApplicationInput;
+}
 
 export interface BatchLabelItem {
   labelId: string;

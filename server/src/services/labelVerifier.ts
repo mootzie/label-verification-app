@@ -6,7 +6,8 @@ import type {
   OverallStatus,
   VerificationResult,
 } from "../types/index";
-import { callClaudeVision, streamClaudeVision, type ImageMediaType } from "./claude";
+import type { ImageMediaType } from "../types/index";
+import { callClaudeVision, streamClaudeVision } from "./claude";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 
 // ---------------------------------------------------------------------------

@@ -1,21 +1,12 @@
 import type {
   BatchJob,
   BatchLabelItem,
-  LabelApplicationInput,
+  LabelInput,
 } from "../types/index";
-import type { ImageMediaType } from "./claude";
 import { verifyLabelStream } from "./labelVerifier";
 import { recordLabelCompletion } from "./redis";
 
 const MAX_CONCURRENT = 5; // raise if Anthropic rate limits hit; lower for free-tier keys
-
-interface LabelInput {
-  labelId: string;
-  filename: string;
-  imageBase64: string;
-  mediaType: ImageMediaType;
-  application: LabelApplicationInput;
-}
 
 export async function processBatch(
   job: BatchJob,
