@@ -114,8 +114,8 @@
 <div class="flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
     <div class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div>
-            <h3 id="application-data-title" class="text-sm font-semibold text-gray-950">Application Data (COLA)</h3>
-            <p class="mt-0.5 text-xs text-gray-500">Enter application details to compare against the label.</p>
+            <h3 id="application-data-title" class="md:text-sm font-semibold text-gray-950 text-xs">Application Data (COLA)</h3>
+            <p class="mt-0.5 text-xs text-gray-500 hidden md:flex">Enter application details to compare against the label.</p>
         </div>
         <button
             type="button"

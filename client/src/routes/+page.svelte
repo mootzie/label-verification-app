@@ -1,4 +1,5 @@
 <script lang="ts">
+    // to whom it may concern: yes this file is very large, but it's mostly UI and state management for a complex single-page app. Breaking it up would make it harder to understand and maintain, not easier. Please forgive the size of this one file
     import { browser } from '$app/environment'
     import { PUBLIC_API_URL } from '$env/static/public'
 
@@ -588,7 +589,7 @@
                 <Button variant="outline" size="sm" class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onclick={() => (showDemoPanel = !showDemoPanel)}>Load Demo</Button>
                 {#if showDemoPanel}
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="absolute right-0 top-full z-50 mt-1 w-xl rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
+                    <div class="absolute left-0 md:right-0 top-full z-50 mt-1 w-xl rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
                         <div class="border-b border-gray-100 px-3 py-2">
                             <p class="text-xs font-semibold text-gray-700">Demo Scenarios</p>
                             <div class="mt-1 flex items-center gap-3 text-xs text-gray-500">
@@ -608,10 +609,10 @@
                                 <li class="flex items-center gap-1 px-2 py-1.5">
                                     <span class="h-2 w-2 shrink-0 rounded-full {scenario.status === 'pass' ? 'bg-green-500' : scenario.status === 'warning' ? 'bg-amber-400' : 'bg-red-500'}" aria-hidden="true"></span>
                                     <span class="min-w-0 flex-1 px-1">
-                                        <span class="block truncate text-sm font-medium text-gray-900">
+                                        <span class="block truncate md:text-sm text-xs font-medium text-gray-900">
                                             {scenario.label}
                                         </span>
-                                        <span class="block truncate text-xs text-gray-500">
+                                        <span class="block truncate md:text-xs text-[10px] text-gray-500">
                                             {scenario.description}
                                         </span>
                                     </span>
@@ -622,10 +623,10 @@
                             <li class="flex items-center gap-1 border-t border-gray-100 px-2 py-1.5">
                                 <span class="h-2 w-2 shrink-0 rounded-full bg-blue-400" aria-hidden="true"></span>
                                 <span class="min-w-0 flex-1 px-1">
-                                    <span class="block truncate text-sm font-medium text-gray-900">
+                                    <span class="block truncate md:text-sm text-xs font-medium text-gray-900">
                                         {DEMO_BULK.label}
                                     </span>
-                                    <span class="block truncate text-xs text-gray-500">
+                                    <span class="block truncate md:text-xs text-[10px] text-gray-500">
                                         {DEMO_BULK.description}
                                     </span>
                                 </span>
@@ -699,7 +700,7 @@
                             {/if}
                         </Button>
                         {#if files.length === 0}
-                            <p class="text-center text-sm text-gray-600">Drag and drop an image anywhere on the screen to enable verification.</p>
+                            <p class="text-center text-sm text-gray-600 hidden md:block">Drag and drop an image anywhere on the screen to enable verification.</p>
                         {/if}
                     </div>
                 </div>
@@ -752,7 +753,7 @@
                             </div>
                         {:else}
                             <button type="button" class="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-blue-200 bg-white p-8 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" aria-label="Upload label image" onclick={() => document.getElementById('file-input-el')?.click()}>
-                                <div class="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                                <div class="md:flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-700 hidden">
                                     <UploadIcon size={28} className="text-blue-700" />
                                 </div>
                                 <p class="text-base font-bold text-gray-900">Drag and drop label images here</p>
@@ -765,7 +766,7 @@
                                     <UploadIcon size={18} />
                                     Browse Files
                                 </span>
-                                <p class="text-xs font-medium text-gray-500">JPEG, PNG, WebP supported</p>
+                                <p class="text-xs font-medium text-gray-500 hidden md:block">JPEG, PNG, WebP supported</p>
                             </button>
                         {/if}
                     </div>
