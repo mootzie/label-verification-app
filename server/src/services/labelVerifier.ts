@@ -7,7 +7,7 @@ import type {
   VerificationResult,
 } from "../types/index";
 import type { ImageMediaType } from "../types/index";
-import { callClaudeVision, streamClaudeVision } from "./claude";
+import { getProvider } from "../providers/index";
 import { GOVERNMENT_WARNING } from "../constants/warnings";
 
 // ---------------------------------------------------------------------------
@@ -409,7 +409,7 @@ export async function verifyLabel(
   const start = Date.now();
   const userMessage = buildUserMessage(application);
 
-  const raw = await callClaudeVision(
+  const raw = await getProvider().callVision(
     imageBase64,
     mediaType,
     userMessage,
@@ -433,7 +433,7 @@ export async function verifyLabel(
     throw err;
   }
 
-  const rawRetry = await callClaudeVision(
+  const rawRetry = await getProvider().callVision(
     imageBase64,
     mediaType,
     userMessage,
@@ -471,12 +471,12 @@ export async function verifyLabelStream(
   const userMessage = buildUserMessage(application);
   const fields: FieldResult[] = [];
 
-  const fullText = await streamClaudeVision(
+  const fullText = await getProvider().streamVision(
     imageBase64,
     mediaType,
     userMessage,
     SYSTEM_PROMPT,
-    (rawJson) => {
+    (rawJson: string) => {
       try {
         const validated = ClaudeFieldSchema.safeParse(JSON.parse(rawJson));
         if (!validated.success) return;

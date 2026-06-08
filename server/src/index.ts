@@ -1,12 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error(
-    "[startup] ANTHROPIC_API_KEY is not set. Set it in server/.env and restart.",
-  );
-  process.exit(1);
-}
+// Trigger provider selection and log which mode is active.
+// Provider falls back to mock if no API credentials are found.
+import { getProvider } from "./providers/index";
+getProvider();
 
 if (!process.env.REDIS_URL) {
   console.warn(

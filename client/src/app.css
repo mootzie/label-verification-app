@@ -22,7 +22,7 @@
 
     /* Forms
        ------------------------------------------------------------ */
-    /* Label row for a form field — wraps the field name, required
+    /* Label row for a form field wraps the field name, required
        asterisk, and any badge. */
     .field-label {
         @apply mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-600;

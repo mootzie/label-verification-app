@@ -3,13 +3,7 @@
     import { PUBLIC_API_URL } from '$env/static/public'
 
     const apiBase = PUBLIC_API_URL || 'http://localhost:3000'
-    import type {
-        VerificationResult,
-        FieldResult,
-        OverallStatus,
-        BatchLabelItem,
-        BatchJobStatus,
-    } from '$shared/index'
+    import type { VerificationResult, FieldResult, OverallStatus, BatchLabelItem, BatchJobStatus } from '$shared/index'
     import { Button } from '$lib/components/ui/button'
     import { Tooltip } from '$lib/components/ui/tooltip'
     import { UploadIcon } from '$lib/components/ui/icon'
@@ -19,20 +13,41 @@
     import BatchQueue from '$lib/components/workspace/BatchQueue.svelte'
     import VerificationReview from '$lib/components/workspace/VerificationReview.svelte'
 
-    import {
-        parseSmartPaste,
-        buildOptionalApplicationData,
-    } from '$lib/utils/application-builder'
+    import { parseSmartPaste, buildOptionalApplicationData } from '$lib/utils/application-builder'
     import { resizeForUpload } from '$lib/utils/image-resize'
-    import {
-        setupGlobalDragAndDrop,
-        setupCtrlVHandler,
-    } from '$lib/utils/globalDragAndDrop'
+    import { setupGlobalDragAndDrop, setupCtrlVHandler } from '$lib/utils/globalDragAndDrop'
     import { DEMO_SCENARIOS, DEMO_BULK } from '$lib/utils/debug-mocks'
     import type { DemoScenario } from '$lib/utils/debug-mocks'
     import { exportBatchCsv, exportSingleLabelCsv } from '$lib/utils/export'
     import type { ReviewDecisions } from '$lib/utils/review-types'
     import DragAndDrop from '$lib/components/ui/dragAndDrop/DragAndDrop.svelte'
+    import type { ApplicationFormValues } from '$lib/components/workspace/ApplicationDataInput.svelte'
+
+    // ── AI provider health ────────────────────────────────────────────────────────
+    interface AIProviderHealth {
+        provider: string
+        configured: boolean
+        available: boolean
+        mode: 'real' | 'mock'
+        message: string
+    }
+    let aiHealth = $state<AIProviderHealth | null>(null)
+
+    $effect(() => {
+        if (!browser) return
+        fetch(`${apiBase}/api/ai/health`)
+            .then((r) => r.json())
+            .then((data: AIProviderHealth) => {
+                aiHealth = data
+            })
+            .catch(() => {})
+    })
+
+    function aiProviderLabel(health: AIProviderHealth): string {
+        if (health.mode === 'mock') return 'Mock Mode'
+        if (health.provider === 'azure_foundry') return 'Azure Foundry'
+        return 'Claude API'
+    }
 
     // ── State ────────────────────────────────────────────────────────────────────
     let files = $state<File[]>([])
@@ -40,26 +55,29 @@
     let imagePreviewUrl = $state<string | null>(null)
     let globalDragActive = $state(false)
 
+    function emptyApplicationData(): ApplicationFormValues {
+        return {
+            brandName: '',
+            beverageType: 'distilled_spirits',
+            classType: '',
+            alcoholContent: '',
+            netContents: '',
+            producerName: '',
+            producerAddress: '',
+            countryOfOrigin: '',
+            appellation: '',
+            ageStatement: '',
+            colorDisclosures: '',
+            commodityStatement: '',
+            sulfiteDeclaration: '',
+            foreignWinePct: '',
+            colorAdditives: '',
+            aspartameDeclaration: '',
+        }
+    }
+
     // Application data - populated by paste/parse or manual entry in ApplicationDataInput
-    let brandName = $state('')
-    let beverageType = $state<'beer' | 'wine' | 'distilled_spirits'>(
-        'distilled_spirits'
-    )
-    let classType = $state('')
-    let alcoholContent = $state('')
-    let netContents = $state('')
-    let producerName = $state('')
-    let producerAddress = $state('')
-    let countryOfOrigin = $state('')
-    // Type-specific optional fields
-    let appellation = $state('')
-    let ageStatement = $state('')
-    let colorDisclosures = $state('')
-    let commodityStatement = $state('')
-    let sulfiteDeclaration = $state('')
-    let foreignWinePct = $state('')
-    let colorAdditives = $state('')
-    let aspartameDeclaration = $state('')
+    let applicationData = $state<ApplicationFormValues>(emptyApplicationData())
 
     let loading = $state(false)
     let streaming = $state(false)
@@ -76,31 +94,16 @@
     let es: EventSource | null = null
 
     // ── Derived ──────────────────────────────────────────────────────────────────
-    let completedCount = $derived(
-        labels.filter((l) => l.status === 'complete' || l.status === 'failed')
-            .length
-    )
-    let batchProgress = $derived(
-        labels.length > 0 ? (completedCount / labels.length) * 100 : 0
-    )
-    let headerProcessingTime = $derived(
-        streamElapsedMs !== null
-            ? `Streamed in ${(streamElapsedMs / 1000).toFixed(1)}s`
-            : streaming
-              ? 'Streaming…'
-              : loading
-                ? 'Processing…'
-                : 'Ready'
-    )
+    let completedCount = $derived(labels.filter((l) => l.status === 'complete' || l.status === 'failed').length)
+    let batchProgress = $derived(labels.length > 0 ? (completedCount / labels.length) * 100 : 0)
+    let headerProcessingTime = $derived(streamElapsedMs !== null ? `Streamed in ${(streamElapsedMs / 1000).toFixed(1)}s` : streaming ? 'Streaming…' : loading ? 'Processing…' : 'Ready')
     let reviewActive = $derived(result !== null || loading || error !== null)
     let labelUploaded = $derived(files.length > 0 && imagePreviewUrl !== null)
     let showReviewQueue = $derived(files.length > 1 || labels.length > 1)
 
     // ── File management ───────────────────────────────────────────────────────────
     function applyFiles(incoming: FileList | File[]) {
-        const valid = Array.from(incoming).filter((f) =>
-            ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
-        )
+        const valid = Array.from(incoming).filter((f) => ['image/jpeg', 'image/png', 'image/webp'].includes(f.type))
         if (valid.length === 0) {
             error = 'Only JPEG, PNG, and WebP images are accepted'
             return
@@ -124,9 +127,7 @@
             if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
             selectedFileIndex = index
             // files[index] may be undefined for debug mocks or batch-only flows
-            imagePreviewUrl = files[index]
-                ? URL.createObjectURL(files[index])
-                : imagePreviewUrl
+            imagePreviewUrl = files[index] ? URL.createObjectURL(files[index]) : imagePreviewUrl
         }
         const labelResult = labels[index]?.result
         if (labelResult) {
@@ -165,10 +166,7 @@
             if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
             imagePreviewUrl = null
             selectedFileIndex = null
-        } else if (
-            wasSelected ||
-            (selectedFileIndex !== null && selectedFileIndex >= files.length)
-        ) {
+        } else if (wasSelected || (selectedFileIndex !== null && selectedFileIndex >= files.length)) {
             selectFile(Math.max(0, Math.min(i, files.length - 1)))
         } else if (selectedFileIndex !== null && selectedFileIndex > i) {
             selectedFileIndex--
@@ -180,22 +178,7 @@
         files = []
         imagePreviewUrl = null
         selectedFileIndex = null
-        brandName = ''
-        beverageType = 'distilled_spirits'
-        classType = ''
-        countryOfOrigin = ''
-        alcoholContent = ''
-        netContents = ''
-        producerName = ''
-        producerAddress = ''
-        appellation = ''
-        ageStatement = ''
-        colorDisclosures = ''
-        commodityStatement = ''
-        sulfiteDeclaration = ''
-        foreignWinePct = ''
-        colorAdditives = ''
-        aspartameDeclaration = ''
+        applicationData = emptyApplicationData()
         result = null
         selectedReviewFieldName = null
         jobId = null
@@ -223,22 +206,7 @@
 
     function appendOptionalApplication(fd: FormData) {
         const application = buildOptionalApplicationData({
-            brandName,
-            classType,
-            beverageType,
-            alcoholContent,
-            netContents,
-            producerName,
-            producerAddress,
-            countryOfOrigin,
-            appellation,
-            ageStatement,
-            colorDisclosures,
-            commodityStatement,
-            sulfiteDeclaration,
-            foreignWinePct,
-            colorAdditives,
-            aspartameDeclaration,
+            ...applicationData,
         })
         if (Object.keys(application).length > 0) {
             fd.append('application', JSON.stringify(application))
@@ -278,9 +246,7 @@
             })
         } catch {
             error = 'Network error'
-            labels = [
-                { ...labels[0], status: 'failed', error: 'Network error' },
-            ]
+            labels = [{ ...labels[0], status: 'failed', error: 'Network error' }]
             loading = false
             jobDone = true
             return
@@ -335,21 +301,12 @@
                         result!.fields.push(event as unknown as FieldResult)
                         result = result // surface mutation to Svelte reactivity
                     } else if (event.type === 'done') {
-                        result!.overallStatus =
-                            event.overallStatus as OverallStatus
-                        if (event.processingTimeMs != null)
-                            result!.processingTimeMs =
-                                event.processingTimeMs as number
-                        if (event.imageQuality != null)
-                            result!.imageQuality =
-                                event.imageQuality as VerificationResult['imageQuality']
-                        if (event.imageNotes != null)
-                            result!.imageNotes = event.imageNotes as string
+                        result!.overallStatus = event.overallStatus as OverallStatus
+                        if (event.processingTimeMs != null) result!.processingTimeMs = event.processingTimeMs as number
+                        if (event.imageQuality != null) result!.imageQuality = event.imageQuality as VerificationResult['imageQuality']
+                        if (event.imageNotes != null) result!.imageNotes = event.imageNotes as string
                         result = result
-                        streamElapsedMs =
-                            streamStartMs !== null
-                                ? Date.now() - streamStartMs
-                                : null
+                        streamElapsedMs = streamStartMs !== null ? Date.now() - streamStartMs : null
                         labels = [{ ...labels[0], status: 'complete', result }]
                     } else if (event.type === 'error') {
                         error = (event.error as string) ?? 'Verification failed'
@@ -374,9 +331,7 @@
             if (!result || result.fields.length === 0) {
                 error = 'Network error during verification'
                 result = null
-                labels = [
-                    { ...labels[0], status: 'failed', error: 'Network error' },
-                ]
+                labels = [{ ...labels[0], status: 'failed', error: 'Network error' }]
             }
         } finally {
             loading = false
@@ -423,9 +378,7 @@
         es = new EventSource(`${apiBase}/api/batch/${jid}/stream`)
         es.addEventListener('label', (e: MessageEvent) => {
             const update: BatchLabelItem = JSON.parse(e.data)
-            labels = labels.map((l) =>
-                l.labelId === update.labelId ? { ...l, ...update } : l
-            )
+            labels = labels.map((l) => (l.labelId === update.labelId ? { ...l, ...update } : l))
         })
         es.addEventListener('done', () => {
             jobDone = true
@@ -448,17 +401,9 @@
 
     function handleExport(decisions: ReviewDecisions) {
         if (result && files[selectedFileIndex ?? 0]) {
-            exportSingleLabelCsv(
-                result,
-                decisions,
-                files[selectedFileIndex ?? 0].name
-            )
+            exportSingleLabelCsv(result, decisions, files[selectedFileIndex ?? 0].name)
         } else if (result) {
-            exportSingleLabelCsv(
-                result,
-                decisions,
-                labels[0]?.filename ?? 'label'
-            )
+            exportSingleLabelCsv(result, decisions, labels[0]?.filename ?? 'label')
         } else {
             exportBatchCsv(labels, jobId)
         }
@@ -466,9 +411,7 @@
 
     function handleMarkAllReviewed(_decisions: ReviewDecisions) {
         // Mark the current queue item as complete in the queue
-        labels = labels.map((l, i) =>
-            i === (selectedFileIndex ?? 0) ? { ...l, status: 'complete' } : l
-        )
+        labels = labels.map((l, i) => (i === (selectedFileIndex ?? 0) ? { ...l, status: 'complete' } : l))
     }
 
     function onDropZoneKeydown(e: KeyboardEvent) {
@@ -477,33 +420,26 @@
         }
     }
 
-    // #region Demo scenarios (batch wiring)
     // #region Demo scenarios
     let showDemoPanel = $state(false)
 
     function applyDemoAppData(appData: (typeof DEMO_SCENARIOS)[0]['appData']) {
-        beverageType = appData.beverageType
-        brandName = appData.brandName
-        classType = appData.classType
-        alcoholContent = appData.alcoholContent
-        netContents = appData.netContents
-        producerName = appData.producerName
-        producerAddress = appData.producerAddress
-        countryOfOrigin = appData.countryOfOrigin ?? ''
-        appellation = appData.appellation ?? ''
-        ageStatement = appData.ageStatement ?? ''
-        colorDisclosures = appData.colorDisclosures ?? ''
-        commodityStatement = appData.commodityStatement ?? ''
-        sulfiteDeclaration = appData.sulfiteDeclaration ?? ''
-        foreignWinePct = appData.foreignWinePct ?? ''
-        colorAdditives = appData.colorAdditives ?? ''
-        aspartameDeclaration = appData.aspartameDeclaration ?? ''
+        applicationData = {
+            ...emptyApplicationData(),
+            ...appData,
+            countryOfOrigin: appData.countryOfOrigin ?? '',
+            appellation: appData.appellation ?? '',
+            ageStatement: appData.ageStatement ?? '',
+            colorDisclosures: appData.colorDisclosures ?? '',
+            commodityStatement: appData.commodityStatement ?? '',
+            sulfiteDeclaration: appData.sulfiteDeclaration ?? '',
+            foreignWinePct: appData.foreignWinePct ?? '',
+            colorAdditives: appData.colorAdditives ?? '',
+            aspartameDeclaration: appData.aspartameDeclaration ?? '',
+        }
     }
 
-    async function fetchDemoFile(
-        path: string,
-        filename: string
-    ): Promise<File> {
+    async function fetchDemoFile(path: string, filename: string): Promise<File> {
         const res = await fetch(path)
         const blob = await res.blob()
         return new File([blob], filename, { type: 'image/png' })
@@ -559,11 +495,7 @@
         error = null
         let fetchedFiles: File[]
         try {
-            fetchedFiles = await Promise.all(
-                DEMO_BULK.imagePaths.map((p, i) =>
-                    fetchDemoFile(p, DEMO_BULK.filenames[i])
-                )
-            )
+            fetchedFiles = await Promise.all(DEMO_BULK.imagePaths.map((p, i) => fetchDemoFile(p, DEMO_BULK.filenames[i])))
         } catch {
             error = 'Could not load demo images'
             return
@@ -589,11 +521,7 @@
         error = null
         let fetchedFiles: File[]
         try {
-            fetchedFiles = await Promise.all(
-                DEMO_BULK.imagePaths.map((p, i) =>
-                    fetchDemoFile(p, DEMO_BULK.filenames[i])
-                )
-            )
+            fetchedFiles = await Promise.all(DEMO_BULK.imagePaths.map((p, i) => fetchDemoFile(p, DEMO_BULK.filenames[i])))
         } catch {
             error = 'Could not load demo images'
             return
@@ -615,19 +543,14 @@
             return
         }
         const parsed = parseSmartPaste(text)
-        if (parsed.brandName && !brandName) brandName = parsed.brandName
-        if (parsed.producerName && !producerName)
-            producerName = parsed.producerName
-        if (parsed.producerAddress && !producerAddress)
-            producerAddress = parsed.producerAddress
-        if (parsed.countryOfOrigin && !countryOfOrigin)
-            countryOfOrigin = parsed.countryOfOrigin
-        if (parsed.beverageType && !beverageType)
-            beverageType = parsed.beverageType as typeof beverageType
-        if (parsed.classType && !classType) classType = parsed.classType
-        if (parsed.alcoholContent && !alcoholContent)
-            alcoholContent = parsed.alcoholContent
-        if (parsed.netContents && !netContents) netContents = parsed.netContents
+        if (parsed.brandName && !applicationData.brandName) applicationData.brandName = parsed.brandName
+        if (parsed.producerName && !applicationData.producerName) applicationData.producerName = parsed.producerName
+        if (parsed.producerAddress && !applicationData.producerAddress) applicationData.producerAddress = parsed.producerAddress
+        if (parsed.countryOfOrigin && !applicationData.countryOfOrigin) applicationData.countryOfOrigin = parsed.countryOfOrigin
+        if (parsed.beverageType && !applicationData.beverageType) applicationData.beverageType = parsed.beverageType as ApplicationFormValues['beverageType']
+        if (parsed.classType && !applicationData.classType) applicationData.classType = parsed.classType
+        if (parsed.alcoholContent && !applicationData.alcoholContent) applicationData.alcoholContent = parsed.alcoholContent
+        if (parsed.netContents && !applicationData.netContents) applicationData.netContents = parsed.netContents
         error = null
     }
 
@@ -642,68 +565,40 @@
     )
 </script>
 
-<main
-    class="mx-auto flex h-full min-h-0 max-w-[2200px] flex-col overflow-hidden bg-slate-50 px-4 py-3">
-    <header
-        class="mb-2 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+<main class="mx-auto flex h-full min-h-0 max-w-[2200px] flex-col overflow-hidden bg-slate-50 px-4 py-3">
+    <header class="mb-2 flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-lg font-bold text-gray-950">
-                TTB Label Verification
-            </h1>
-            <p class="mt-0.5 text-xs font-medium text-gray-600">
-                Verify alcohol beverage label compliance with TTB requirements.
-            </p>
+            <h1 class="text-lg font-bold text-gray-950">TTB Label Verification</h1>
+            <p class="mt-0.5 text-xs font-medium text-gray-600">Verify alcohol beverage label compliance with TTB requirements.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a
-                href="/docs"
-                class="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900">
-                Docs
-            </a>
-            <span
-                class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
-                <span
-                    class="h-2.5 w-2.5 rounded-full {loading || submitting
-                        ? 'bg-blue-500'
-                        : error
-                          ? 'bg-red-500'
-                          : 'bg-green-500'}"
-                    aria-hidden="true">
+            <a href="/docs" class="inline-flex items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900">Docs</a>
+            {#if aiHealth}
+                <span title={aiHealth.message} class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+                    <span class="h-2.5 w-2.5 rounded-full {aiHealth.mode === 'mock' ? 'bg-amber-400' : aiHealth.available ? 'bg-green-500' : 'bg-red-500'}" aria-hidden="true"></span>
+                    AI: {aiProviderLabel(aiHealth)}
                 </span>
+            {/if}
+            <span class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm">
+                <span class="h-2.5 w-2.5 rounded-full {loading || submitting ? 'bg-blue-500' : error ? 'bg-red-500' : 'bg-green-500'}" aria-hidden="true"></span>
                 {headerProcessingTime}
             </span>
             <!-- Demo scenarios -->
             <div class="relative">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                    onclick={() => (showDemoPanel = !showDemoPanel)}>
-                    Load Demo
-                </Button>
+                <Button variant="outline" size="sm" class="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onclick={() => (showDemoPanel = !showDemoPanel)}>Load Demo</Button>
                 {#if showDemoPanel}
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div
-                        class="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-gray-200 bg-white shadow-lg"
-                        onkeydown={(e) =>
-                            e.key === 'Escape' && (showDemoPanel = false)}>
+                    <div class="absolute right-0 top-full z-50 mt-1 w-72 rounded-md border border-gray-200 bg-white shadow-lg" onkeydown={(e) => e.key === 'Escape' && (showDemoPanel = false)}>
                         <div class="border-b border-gray-100 px-3 py-2">
-                            <p class="text-xs font-semibold text-gray-700">
-                                Demo Scenarios
-                            </p>
-                            <div
-                                class="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                            <p class="text-xs font-semibold text-gray-700">Demo Scenarios</p>
+                            <div class="mt-1 flex items-center gap-3 text-xs text-gray-500">
                                 <span>
-                                    <span class="font-medium text-gray-700">
-                                        Preview
-                                    </span>
+                                    <span class="font-medium text-gray-700">Preview</span>
                                     - instant pre-baked result
                                 </span>
                                 <span>·</span>
                                 <span>
-                                    <span class="font-medium text-indigo-700">
-                                        Run
-                                    </span>
+                                    <span class="font-medium text-indigo-700">Run</span>
                                     - real Claude API
                                 </span>
                             </div>
@@ -711,223 +606,110 @@
                         <ul class="py-1">
                             {#each DEMO_SCENARIOS as scenario (scenario.id)}
                                 <li class="flex items-center gap-1 px-2 py-1.5">
-                                    <span
-                                        class="h-2 w-2 shrink-0 rounded-full {scenario.status ===
-                                        'pass'
-                                            ? 'bg-green-500'
-                                            : scenario.status === 'warning'
-                                              ? 'bg-amber-400'
-                                              : 'bg-red-500'}"
-                                        aria-hidden="true">
-                                    </span>
+                                    <span class="h-2 w-2 shrink-0 rounded-full {scenario.status === 'pass' ? 'bg-green-500' : scenario.status === 'warning' ? 'bg-amber-400' : 'bg-red-500'}" aria-hidden="true"></span>
                                     <span class="min-w-0 flex-1 px-1">
-                                        <span
-                                            class="block truncate text-sm font-medium text-gray-900">
+                                        <span class="block truncate text-sm font-medium text-gray-900">
                                             {scenario.label}
                                         </span>
-                                        <span
-                                            class="block truncate text-xs text-gray-500">
+                                        <span class="block truncate text-xs text-gray-500">
                                             {scenario.description}
                                         </span>
                                     </span>
-                                    <button
-                                        type="button"
-                                        class="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                                        onclick={() =>
-                                            previewScenario(scenario)}>
-                                        Preview
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="shrink-0 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
-                                        onclick={() => loadScenario(scenario)}>
-                                        Run
-                                    </button>
+                                    <button type="button" class="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onclick={() => previewScenario(scenario)}>Preview</button>
+                                    <button type="button" class="shrink-0 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600" onclick={() => loadScenario(scenario)}>Run</button>
                                 </li>
                             {/each}
-                            <li
-                                class="flex items-center gap-1 border-t border-gray-100 px-2 py-1.5">
-                                <span
-                                    class="h-2 w-2 shrink-0 rounded-full bg-blue-400"
-                                    aria-hidden="true">
-                                </span>
+                            <li class="flex items-center gap-1 border-t border-gray-100 px-2 py-1.5">
+                                <span class="h-2 w-2 shrink-0 rounded-full bg-blue-400" aria-hidden="true"></span>
                                 <span class="min-w-0 flex-1 px-1">
-                                    <span
-                                        class="block truncate text-sm font-medium text-gray-900">
+                                    <span class="block truncate text-sm font-medium text-gray-900">
                                         {DEMO_BULK.label}
                                     </span>
-                                    <span
-                                        class="block truncate text-xs text-gray-500">
+                                    <span class="block truncate text-xs text-gray-500">
                                         {DEMO_BULK.description}
                                     </span>
                                 </span>
-                                <button
-                                    type="button"
-                                    class="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                                    onclick={previewBatchDemo}>
-                                    Preview
-                                </button>
-                                <button
-                                    type="button"
-                                    class="shrink-0 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
-                                    onclick={loadBatchDemo}>
-                                    Run
-                                </button>
+                                <button type="button" class="shrink-0 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onclick={previewBatchDemo}>Preview</button>
+                                <button type="button" class="shrink-0 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600" onclick={loadBatchDemo}>Run</button>
                             </li>
                         </ul>
                     </div>
-                    <button
-                        type="button"
-                        class="fixed inset-0 z-40 cursor-default"
-                        aria-label="Close demo panel"
-                        tabindex="-1"
-                        onclick={() => (showDemoPanel = false)}>
-                    </button>
+                    <button type="button" class="fixed inset-0 z-40 cursor-default" aria-label="Close demo panel" tabindex="-1" onclick={() => (showDemoPanel = false)}></button>
                 {/if}
             </div>
             {#if jobDone || result}
-                <Tooltip text="Clear everything and start fresh">
-                    <Button variant="outline" size="sm" onclick={clearAll}>
-                        New Verification
-                    </Button>
-                </Tooltip>
+                <Button variant="primary" size="sm" onclick={clearAll}>New Verification</Button>
             {/if}
         </div>
     </header>
 
+    {#if aiHealth?.mode === 'mock'}
+        <div class="mb-3 flex shrink-0 items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900" role="alert">
+            <span class="shrink-0">⚠</span>
+            <span>Mock Mode Active — AI provider is not configured. Results are simulated and must not be used for compliance review.</span>
+        </div>
+    {/if}
+
     {#if !reviewActive}
-        <div
-            class="mb-3 flex shrink-0 items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-900">
+        <div class="mb-3 flex shrink-0 items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-900">
             <UploadIcon size={16} className="shrink-0 text-blue-700" />
-            <span>
-                Tip: Drag and drop label images anywhere on this screen to
-                upload.
-            </span>
+            <span>Tip: Drag and drop label images anywhere on this screen to upload.</span>
         </div>
     {/if}
 
     {#if reviewActive}
         <!-- Review phase: keep attention on the document and verification results. -->
-        <div
-            class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(22rem,0.58fr)_1fr]">
+        <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(22rem,0.58fr)_1fr]">
             <div class="min-h-0 min-w-0 overflow-hidden">
                 <MediaPanel
                     {files}
                     {imagePreviewUrl}
                     {selectedFileIndex}
-                    {jobId}
-                    selectedFieldName={selectedReviewFieldName}
                     workstation
                     hideFileInput={true}
                     onFileInput={(e) => {
                         const fl = (e.currentTarget as HTMLInputElement).files
                         if (fl) applyFiles(fl)
                     }}
-                    onSelectFile={selectFile}
-                    onRemoveFile={removeFile}
-                    {onDropZoneKeydown}
                     onUseSingleFile={useSingleFile} />
             </div>
             <div class="min-h-0 min-w-0 overflow-hidden">
-                <VerificationReview
-                    {result}
-                    {loading}
-                    {comparing}
-                    {error}
-                    {beverageType}
-                    {brandName}
-                    {producerName}
-                    {classType}
-                    {producerAddress}
-                    {countryOfOrigin}
-                    {alcoholContent}
-                    {netContents}
-                    {appellation}
-                    {ageStatement}
-                    {colorDisclosures}
-                    {commodityStatement}
-                    {sulfiteDeclaration}
-                    {foreignWinePct}
-                    {colorAdditives}
-                    {aspartameDeclaration}
-                    mode="body"
-                    onSelectedFieldChange={(fieldName) =>
-                        (selectedReviewFieldName = fieldName)}
-                    onExport={handleExport}
-                    onMarkAllReviewed={handleMarkAllReviewed} />
+                <VerificationReview {result} {loading} {comparing} {error} {applicationData} mode="body" onSelectedFieldChange={(fieldName) => (selectedReviewFieldName = fieldName)} onExport={handleExport} onMarkAllReviewed={handleMarkAllReviewed} />
             </div>
         </div>
     {:else}
         <!-- Intake phase: application data left, upload and queue blank slate right. -->
-        <div
-            class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(22rem,0.42fr)_1fr]">
+        <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[minmax(22rem,0.42fr)_1fr]">
             <div class="h-full min-h-0 overflow-hidden pr-1">
                 <div class="flex h-full min-h-0 flex-col gap-3">
                     <div class="min-h-0 flex-1 [&>div]:h-full">
-                        <ApplicationDataInput
-                            bind:brandName
-                            bind:producerName
-                            bind:beverageType
-                            bind:classType
-                            bind:producerAddress
-                            bind:countryOfOrigin
-                            bind:alcoholContent
-                            bind:netContents
-                            bind:appellation
-                            bind:ageStatement
-                            bind:colorDisclosures
-                            bind:commodityStatement
-                            bind:sulfiteDeclaration
-                            bind:foreignWinePct
-                            bind:colorAdditives
-                            bind:aspartameDeclaration
-                            {loading} />
+                        <ApplicationDataInput bind:values={applicationData} {loading} />
                     </div>
 
-                    <div
-                        class="sticky bottom-0 z-20 -mx-1 flex shrink-0 flex-col gap-1.5 bg-slate-50/95 px-1 pb-1 pt-3 backdrop-blur">
-                        <Button
-                            disabled={files.length === 0 ||
-                                loading ||
-                                submitting}
-                            onclick={handleSubmit}
-                            class="h-11 w-full bg-blue-900 font-semibold text-white hover:bg-blue-800 disabled:opacity-50">
+                    <div class="sticky bottom-0 z-20 -mx-1 flex shrink-0 flex-col gap-1.5 bg-slate-50/95 px-1 pb-1 pt-3 backdrop-blur">
+                        <Button disabled={files.length === 0 || loading || submitting} onclick={handleSubmit} variant="primary">
                             {#if loading}
                                 Verifying…
                             {:else}
-                                <svg
-                                    class="mr-2 h-4 w-4 shrink-0"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    aria-hidden="true">
+                                <svg class="mr-2 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path d="M9 11l3 3L22 4" />
-                                    <path
-                                        d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                                 </svg>
                                 Verify Label
                             {/if}
                         </Button>
                         {#if files.length === 0}
-                            <p class="text-center text-sm text-gray-600">
-                                Drag and drop an image anywhere on the screen to
-                                enable verification.
-                            </p>
+                            <p class="text-center text-sm text-gray-600">Drag and drop an image anywhere on the screen to enable verification.</p>
                         {/if}
                     </div>
                 </div>
             </div>
 
-            <div
-                class="grid min-h-0 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden">
-                <section
-                    class="flex min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
+            <div class="grid min-h-0 grid-rows-[minmax(0,2fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+                <section class="flex min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
                     <div class="px-4 py-3">
                         <h2 class="panel-title">Label Image Upload</h2>
-                        <p class="mt-0.5 text-xs font-medium text-gray-500">
-                            Add a single label image to begin verification.
-                        </p>
+                        <p class="mt-0.5 text-xs font-medium text-gray-500">Add a single label image to begin verification.</p>
                     </div>
                     <div class="flex min-h-0 flex-1 p-4 pt-0">
                         <input
@@ -937,120 +719,60 @@
                             multiple
                             class="sr-only"
                             onchange={(e) => {
-                                const fl = (e.currentTarget as HTMLInputElement)
-                                    .files
+                                const fl = (e.currentTarget as HTMLInputElement).files
                                 if (fl) applyFiles(fl)
                             }} />
                         {#if files.length > 0}
-                            <div
-                                class="flex min-h-0 w-full flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed border-blue-200 bg-blue-50/20 p-8 text-center">
-                                <div
-                                    class="flex h-16 w-16 items-center justify-center rounded-full border border-green-200 bg-green-50 shadow-sm ring-4 ring-green-50"
-                                    aria-hidden="true">
-                                    <svg
-                                        class="h-7 w-7 text-green-700"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2.3"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round">
+                            <div class="flex min-h-0 w-full flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed border-blue-200 bg-blue-50/20 p-8 text-center">
+                                <div class="flex h-16 w-16 items-center justify-center rounded-full border border-green-200 bg-green-50 shadow-sm ring-4 ring-green-50" aria-hidden="true">
+                                    <svg class="h-7 w-7 text-green-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M20 6L9 17l-5-5" />
                                     </svg>
                                 </div>
                                 <div class="max-w-lg">
-                                    <p
-                                        class="text-base font-bold text-gray-900">
-                                        {files.length} label{files.length === 1
-                                            ? ''
-                                            : 's'} ready for verification
+                                    <p class="text-base font-bold text-gray-900">
+                                        {files.length} label{files.length === 1 ? '' : 's'} ready for verification
                                     </p>
-                                    <div
-                                        class="mt-3 max-h-28 min-w-[20rem] max-w-xl overflow-y-auto rounded-md border border-gray-200 bg-white text-left shadow-sm">
+                                    <div class="mt-3 max-h-28 min-w-[20rem] max-w-xl overflow-y-auto rounded-md border border-gray-200 bg-white text-left shadow-sm">
                                         {#each files as file, index}
-                                            <div
-                                                class="flex items-center gap-2 border-b border-gray-100 px-3 py-2 last:border-b-0">
-                                                <span
-                                                    class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-[11px] font-bold text-green-700"
-                                                    aria-hidden="true">
+                                            <div class="flex items-center gap-2 border-b border-gray-100 px-3 py-2 last:border-b-0">
+                                                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-[11px] font-bold text-green-700" aria-hidden="true">
                                                     {index + 1}
                                                 </span>
-                                                <span
-                                                    class="min-w-0 flex-1 truncate text-sm font-medium text-gray-700"
-                                                    title={file.name}>
+                                                <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-700" title={file.name}>
                                                     {file.name}
                                                 </span>
                                             </div>
                                         {/each}
                                     </div>
                                 </div>
-                                <div
-                                    class="flex flex-wrap justify-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onclick={() =>
-                                            document
-                                                .getElementById('file-input-el')
-                                                ?.click()}>
-                                        Replace files
-                                    </Button>
+                                <div class="flex flex-wrap justify-center gap-2">
+                                    <Button variant="outline" size="sm" onclick={() => document.getElementById('file-input-el')?.click()}>Replace files</Button>
                                 </div>
                             </div>
                         {:else}
-                            <button
-                                type="button"
-                                class="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-blue-200 bg-white p-8 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                                aria-label="Upload label image"
-                                onclick={() =>
-                                    document
-                                        .getElementById('file-input-el')
-                                        ?.click()}>
-                                <div
-                                    class="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                                    <UploadIcon
-                                        size={28}
-                                        className="text-blue-700" />
+                            <button type="button" class="flex min-h-0 w-full flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-blue-200 bg-white p-8 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" aria-label="Upload label image" onclick={() => document.getElementById('file-input-el')?.click()}>
+                                <div class="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                                    <UploadIcon size={28} className="text-blue-700" />
                                 </div>
-                                <p class="text-base font-bold text-gray-900">
-                                    Drag and drop label images here
-                                </p>
-                                <div
-                                    class="flex w-full max-w-xs items-center gap-3 text-xs text-gray-400"
-                                    aria-hidden="true">
-                                    <span class="h-px flex-1 bg-gray-200">
-                                    </span>
+                                <p class="text-base font-bold text-gray-900">Drag and drop label images here</p>
+                                <div class="flex w-full max-w-xs items-center gap-3 text-xs text-gray-400" aria-hidden="true">
+                                    <span class="h-px flex-1 bg-gray-200"></span>
                                     <span>or</span>
-                                    <span class="h-px flex-1 bg-gray-200">
-                                    </span>
+                                    <span class="h-px flex-1 bg-gray-200"></span>
                                 </div>
-                                <span
-                                    class="inline-flex h-10 items-center gap-2 rounded-md border border-blue-300 bg-white px-5 text-sm font-bold text-blue-800 shadow-sm hover:bg-blue-50">
+                                <span class="inline-flex h-10 items-center gap-2 rounded-md border border-blue-300 bg-white px-5 text-sm font-bold text-blue-800 shadow-sm hover:bg-blue-50">
                                     <UploadIcon size={18} />
                                     Browse Files
                                 </span>
-                                <p class="text-xs font-medium text-gray-500">
-                                    JPEG, PNG, WebP supported
-                                </p>
+                                <p class="text-xs font-medium text-gray-500">JPEG, PNG, WebP supported</p>
                             </button>
                         {/if}
                     </div>
                 </section>
 
                 <div class="min-h-0 [&>div]:h-full">
-                    <BatchQueue
-                        {jobId}
-                        {jobDone}
-                        {labels}
-                        {completedCount}
-                        {batchProgress}
-                        {files}
-                        {selectedFileIndex}
-                        onSelectFile={selectFile}
-                        onExportCsv={exportCsv}
-                        onBatchUpload={() =>
-                            document.getElementById('file-input-el')?.click()}
-                        onClearQueue={clearAll} />
+                    <BatchQueue {jobId} {jobDone} {labels} {completedCount} {batchProgress} {files} {selectedFileIndex} onSelectFile={selectFile} onExportCsv={exportCsv} />
                 </div>
             </div>
         </div>
@@ -1059,19 +781,7 @@
     {#if reviewActive && showReviewQueue}
         <!-- Batch queue - shown only for multi-label review -->
         <div class="mt-3 shrink-0">
-            <BatchQueue
-                {jobId}
-                {jobDone}
-                {labels}
-                {completedCount}
-                {batchProgress}
-                {files}
-                {selectedFileIndex}
-                onSelectFile={selectFile}
-                onExportCsv={exportCsv}
-                onBatchUpload={() =>
-                    document.getElementById('file-input-el')?.click()}
-                onClearQueue={clearAll} />
+            <BatchQueue {jobId} {jobDone} {labels} {completedCount} {batchProgress} {files} {selectedFileIndex} onSelectFile={selectFile} onExportCsv={exportCsv} />
         </div>
     {/if}
 </main>

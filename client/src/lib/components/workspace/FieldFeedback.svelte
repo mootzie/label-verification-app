@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { FieldResult } from '$shared/index';
-    let { fr }: { fr: FieldResult | undefined } = $props();
+    import type { FieldResult } from '$shared/index'
+    let { fr }: { fr: FieldResult | undefined } = $props()
 </script>
 
 {#if fr && fr.status !== 'pass'}

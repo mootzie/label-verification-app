@@ -1,47 +1,30 @@
 <script lang="ts">
     import { onDestroy } from 'svelte'
-    import {
-        Card,
-        CardContent,
-        CardHeader,
-        CardTitle,
-    } from '$lib/components/ui/card'
+    import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card'
     import { FileTextIcon, UploadIcon } from '$lib/components/ui/icon'
 
     let {
         files,
         imagePreviewUrl,
-        selectedFileIndex,
-        jobId,
-        selectedFieldName = null,
         workstation = false,
         blankState = false,
         hideFileInput = false,
         hoverScale = 1.75,
         onFileInput,
-        onSelectFile,
-        onRemoveFile,
-        onDropZoneKeydown,
         onUseSingleFile,
     }: {
         files: File[]
         imagePreviewUrl: string | null
         selectedFileIndex: number | null
-        jobId: string | null
-        selectedFieldName?: string | null
         workstation?: boolean
         blankState?: boolean
         hideFileInput?: boolean
         hoverScale?: number
         onFileInput: (e: Event) => void
-        onSelectFile: (i: number) => void
-        onRemoveFile: (i: number) => void
-        onDropZoneKeydown: (e: KeyboardEvent) => void
         onUseSingleFile: () => void
     } = $props()
 
     let isHovering = $state(false)
-    let zoomEnabled = $state(true)
     let zoomLevel = $state(2.5)
     let previewImage = $state<HTMLImageElement | null>(null)
     let zoomInitialized = false
@@ -49,7 +32,7 @@
     let nextOrigin = '50% 50%'
 
     let zoomPercent = $derived(Math.round(zoomLevel * 100))
-    let activeScale = $derived(isHovering && zoomEnabled ? zoomLevel : 1)
+    let activeScale = $derived(isHovering ? zoomLevel : 1)
 
     $effect(() => {
         if (zoomInitialized) return
@@ -65,14 +48,8 @@
         if (!previewImage) return '50% 50%'
         const rect = previewImage.getBoundingClientRect()
         if (rect.width <= 0 || rect.height <= 0) return '50% 50%'
-        const x = Math.min(
-            100,
-            Math.max(0, ((e.clientX - rect.left) / rect.width) * 100)
-        )
-        const y = Math.min(
-            100,
-            Math.max(0, ((e.clientY - rect.top) / rect.height) * 100)
-        )
+        const x = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100))
+        const y = Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100))
         return `${x}% ${y}%`
     }
 
@@ -81,14 +58,14 @@
     }
 
     function handlePointerEnter(e: PointerEvent) {
-        if (!zoomEnabled || !previewImage) return
+        if (!previewImage) return
         nextOrigin = originFromPointer(e)
         setZoomOrigin(nextOrigin)
         isHovering = true
     }
 
     function handlePointerMove(e: PointerEvent) {
-        if (!zoomEnabled || !previewImage) return
+        if (!previewImage) return
         nextOrigin = originFromPointer(e)
         if (pointerFrame) return
         pointerFrame = requestAnimationFrame(() => {
@@ -108,262 +85,92 @@
     }
 
     function handleWheel(e: WheelEvent) {
-        if (!zoomEnabled || !isHovering) return
+        if (!isHovering) return
         e.preventDefault()
         setZoom(zoomLevel + (e.deltaY > 0 ? -0.25 : 0.25))
     }
 </script>
 
 <div class="min-w-0 h-full">
-    <Card
-        class="h-full flex flex-col overflow-hidden border-gray-200 shadow-sm">
-        <CardHeader
-            class="{workstation
-                ? 'py-2.5'
-                : 'py-4'} border-b border-gray-200 bg-white">
+    <Card class="h-full flex flex-col overflow-hidden border-gray-200 shadow-sm">
+        <CardHeader class="{workstation ? 'py-2.5' : 'py-4'} border-b border-gray-200 bg-white">
             <div class="flex items-center justify-between gap-3 w-full">
                 <div class="min-w-0">
-                    <CardTitle
-                        class="{workstation
-                            ? 'text-sm'
-                            : 'text-base'} font-bold text-gray-950">
+                    <CardTitle class="{workstation ? 'text-sm' : 'text-base'} font-bold text-gray-950">
                         {blankState ? 'Add Label Image' : 'Label Image'}
                     </CardTitle>
                     <p class="mt-1 truncate text-xs font-medium text-gray-500">
-                        {files.length > 1
-                            ? `${files.length} labels`
-                            : imagePreviewUrl
-                              ? 'Single label'
-                              : 'Upload a label image'}
+                        {files.length > 1 ? `${files.length} labels` : imagePreviewUrl ? 'Single label' : 'Upload a label image'}
                     </p>
                 </div>
                 {#if imagePreviewUrl}
-                    <button
-                        type="button"
-                        class="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                        onclick={() =>
-                            document.getElementById('file-input-el')?.click()}>
-                        Change files
-                    </button>
+                    <button type="button" class="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onclick={() => document.getElementById('file-input-el')?.click()}>Change files</button>
                 {:else if blankState}
-                    <FileTextIcon
-                        size={28}
-                        className="shrink-0 text-blue-700" />
+                    <FileTextIcon size={28} className="shrink-0 text-blue-700" />
                 {/if}
             </div>
         </CardHeader>
 
-        <CardContent
-            class="{workstation
-                ? 'p-2'
-                : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden">
-            <div
-                class="mb-4 flex h-10 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-3 text-xs text-gray-600">
+        <CardContent class="{workstation ? 'p-2' : 'p-4'} min-w-0 flex flex-col flex-1 overflow-hidden">
+            <div class="mb-4 flex h-10 shrink-0 flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-3 text-xs text-gray-600">
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-gray-800">Document Viewer</span>
-                    <span class="text-gray-300">|</span>
-                    <span>
-                        {files.length > 1
-                            ? `${files.length} labels loaded`
-                            : 'Single label'}
-                    </span>
                 </div>
                 <div class="flex items-center gap-2">
                     {#if imagePreviewUrl}
-                        <button
-                            type="button"
-                            class="inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-xs font-semibold shadow-sm transition-colors {zoomEnabled
-                                ? 'border-green-300 bg-green-50 text-green-800'
-                                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                            aria-pressed={zoomEnabled}
-                            onclick={() => (zoomEnabled = !zoomEnabled)}>
-                            <span>Inspect</span>
-                            <span
-                                class="relative h-3.5 w-6 rounded-full transition-colors {zoomEnabled
-                                    ? 'bg-green-600'
-                                    : 'bg-gray-300'}"
-                                aria-hidden="true">
-                                <span
-                                    class="absolute left-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform {zoomEnabled
-                                        ? 'translate-x-2.5'
-                                        : 'translate-x-0'}">
-                                </span>
-                            </span>
-                        </button>
-                        <div
-                            class="flex h-7 items-center overflow-hidden rounded border border-gray-300 bg-white shadow-sm"
-                            aria-label="Inspect zoom controls">
-                            <button
-                                type="button"
-                                class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
-                                aria-label="Decrease inspect zoom"
-                                onclick={() => setZoom(zoomLevel - 0.25)}>
-                                -
-                            </button>
-                            <span
-                                class="min-w-12 border-x border-gray-200 px-2 text-center text-xs font-semibold text-gray-700">
+                        <div class="flex h-7 items-center overflow-hidden rounded border border-gray-300 bg-white shadow-sm" aria-label="Inspect zoom controls">
+                            <button type="button" class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600" aria-label="Decrease inspect zoom" onclick={() => setZoom(zoomLevel - 0.25)}>-</button>
+                            <span class="min-w-12 border-x border-gray-200 px-2 text-center text-xs font-semibold text-gray-700">
                                 {zoomPercent}%
                             </span>
-                            <button
-                                type="button"
-                                class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
-                                aria-label="Increase inspect zoom"
-                                onclick={() => setZoom(zoomLevel + 0.25)}>
-                                +
-                            </button>
+                            <button type="button" class="flex h-full w-7 items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600" aria-label="Increase inspect zoom" onclick={() => setZoom(zoomLevel + 0.25)}>+</button>
                         </div>
                     {/if}
                 </div>
             </div>
             {#if !hideFileInput}
-                <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
-                    class="sr-only"
-                    onchange={onFileInput}
-                    id="file-input-el" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" onchange={onFileInput} id="file-input-el" />
             {/if}
 
             {#if imagePreviewUrl}
                 <div class="flex min-h-0 flex-1 flex-col gap-2">
-                    <div
-                        class="relative min-h-0 flex-1 w-full overflow-hidden rounded border border-gray-300 bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] shadow-inner {zoomEnabled
-                            ? 'cursor-zoom-in'
-                            : 'cursor-default'}"
-                        role="region"
-                        aria-label="Label image preview. Inspect on hover can be toggled in the viewer toolbar."
-                        onpointerenter={handlePointerEnter}
-                        onpointerleave={handlePointerLeave}
-                        onpointermove={handlePointerMove}
-                        onwheel={handleWheel}>
-                        <div
-                            class="absolute inset-0 flex items-center justify-center overflow-hidden">
-                            <img
-                                bind:this={previewImage}
-                                src={imagePreviewUrl}
-                                alt="Preview"
-                                class="block max-h-full max-w-full select-none object-contain will-change-transform [--zoom-origin:50%_50%] {isHovering &&
-                                zoomEnabled
-                                    ? 'duration-0'
-                                    : 'transition-transform duration-150 ease-out'}"
-                                style="transform: scale({activeScale}); transform-origin: var(--zoom-origin);"
-                                draggable="false" />
+                    <div class="relative min-h-0 flex-1 w-full overflow-hidden rounded border border-gray-300 bg-[linear-gradient(45deg,#e5e7eb_25%,transparent_25%),linear-gradient(-45deg,#e5e7eb_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e5e7eb_75%),linear-gradient(-45deg,transparent_75%,#e5e7eb_75%)] bg-[length:18px_18px] bg-[position:0_0,0_9px,9px_-9px,-9px_0] shadow-inner hover:cursor-pointer" role="region" aria-label="Label image preview. Inspect on hover can be toggled in the viewer toolbar." onpointerenter={handlePointerEnter} onpointerleave={handlePointerLeave} onpointermove={handlePointerMove} onwheel={handleWheel}>
+                        <div class="absolute inset-0 flex items-center justify-center overflow-hidden">
+                            <img bind:this={previewImage} src={imagePreviewUrl} alt="Preview" class="block max-h-full max-w-full select-none object-contain will-change-transform [--zoom-origin:50%_50%] {isHovering ? 'duration-0' : 'transition-transform duration-150 ease-out'}" style="transform: scale({activeScale}); transform-origin: var(--zoom-origin);" draggable="false" />
                         </div>
                     </div>
-                    <!-- {#if files.length > 1}
-                        <div
-                            class="max-h-[12rem] overflow-y-auto space-y-1 rounded-md border border-gray-100 p-1.5 min-w-0 bg-gray-50/30"
-                        >
-                            {#each files as file, i}
-                                <div
-                                    class="group flex items-center justify-between gap-2 rounded px-2.5 py-2 transition-colors {selectedFileIndex ===
-                                    i
-                                        ? 'bg-blue-100/50 text-blue-700 font-medium'
-                                        : 'hover:bg-gray-100/50'} min-w-0"
-                                >
-                                    <button
-                                        type="button"
-                                        class="flex-1 truncate text-left text-sm"
-                                        onclick={() => onSelectFile(i)}
-                                        >{file.name}</button
-                                    >
-                                    {#if !jobId}
-                                        <button
-                                            type="button"
-                                            onclick={() => onRemoveFile(i)}
-                                            class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            aria-label="Remove file"
-                                            ><svg
-                                                class="h-4 w-4"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                ><path d="M18 6L6 18M6 6l12 12"
-                                                ></path></svg
-                                            ></button
-                                        >{/if}
-                                </div>
-                            {/each}
-                        </div>
-                    {/if} -->
-                    <div
-                        class="flex shrink-0 items-center justify-between px-1">
+                    <div class="flex shrink-0 items-center justify-between px-1">
                         {#if files.length > 1}
                             <div class="flex flex-col gap-1">
-                                <span
-                                    class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                                    <svg
-                                        class="h-3.5 w-3.5 shrink-0"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        aria-hidden="true">
-                                        <rect
-                                            x="2"
-                                            y="7"
-                                            width="20"
-                                            height="14"
-                                            rx="2" />
-                                        <path
-                                            d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                    <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
                                         <line x1="12" y1="12" x2="12" y2="17" />
-                                        <line
-                                            x1="9"
-                                            y1="14.5"
-                                            x2="15"
-                                            y2="14.5" />
+                                        <line x1="9" y1="14.5" x2="15" y2="14.5" />
                                     </svg>
-                                    Batch Mode — {files.length} labels
+                                    Batch Mode {files.length} labels
                                 </span>
-                                <button
-                                    type="button"
-                                    class="text-left text-xs text-gray-500 hover:text-blue-600 hover:underline px-1"
-                                    onclick={onUseSingleFile}>
-                                    ← Use first file only
-                                </button>
+                                <button type="button" class="text-left text-xs text-gray-500 hover:text-blue-600 hover:underline px-1" onclick={onUseSingleFile}>← Use first file only</button>
                             </div>
                         {:else}
-                            <span
-                                class="text-xs font-semibold uppercase text-gray-600">
-                                Single Label
-                            </span>
+                            <span class="text-xs font-semibold uppercase text-gray-600">Single Label</span>
                         {/if}
-                        <span class="text-xs font-medium text-gray-500">
-                            {zoomEnabled
-                                ? 'Hover to inspect; adjust zoom above.'
-                                : 'Inspect is off'}
-                        </span>
                     </div>
                 </div>
             {:else}
-                <button
-                    type="button"
-                    class="flex min-h-[24rem] flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-gray-300 bg-white p-10 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                    aria-label="Add label images"
-                    onclick={() =>
-                        document.getElementById('file-input-el')?.click()}>
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-blue-100">
+                <button type="button" class="flex min-h-[24rem] flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-gray-300 bg-white p-10 text-center transition-all hover:border-blue-500 hover:bg-blue-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" aria-label="Add label images" onclick={() => document.getElementById('file-input-el')?.click()}>
+                    <div class="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-blue-100">
                         <UploadIcon size={28} />
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-gray-700">
-                            Add Label Images
-                        </p>
-                        <span
-                            class="mt-4 inline-flex items-center gap-2 rounded-md bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+                        <p class="text-sm font-semibold text-gray-700">Add Label Images</p>
+                        <span class="mt-4 inline-flex items-center gap-2 rounded-md bg-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
                             <UploadIcon size={24} />
                             Browse Files
                         </span>
-                        <p class="mt-2 text-sm text-gray-600">
-                            or drag and drop label images anywhere on the screen
-                        </p>
-                        <p class="mt-2 text-xs text-gray-500 tracking-wider">
-                            JPEG, PNG, WebP supported
-                        </p>
+                        <p class="mt-2 text-sm text-gray-600">or drag and drop label images anywhere on the screen</p>
+                        <p class="mt-2 text-xs text-gray-500 tracking-wider">JPEG, PNG, WebP supported</p>
                     </div>
                 </button>
             {/if}

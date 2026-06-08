@@ -1,10 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
-import Anthropic from "@anthropic-ai/sdk";
 import { verifyLabel, verifyLabelStream } from "../services/labelVerifier";
 import { verifyLimiter } from "../middleware/rateLimiters";
 import { LabelApplicationSchema } from "../middleware/validation";
 import { upload } from "../middleware/upload";
+import { ProviderError } from "../providers/index";
 import type { ImageMediaType, LabelApplicationInput } from "../types/index";
 
 const VERIFY_TIMEOUT_MS = 45_000;
@@ -74,8 +74,22 @@ function setupSSE(res: Response): void {
 function isTimeoutError(err: unknown): boolean {
   return (
     (err instanceof Error && err.name === "AbortError") ||
-    err instanceof Anthropic.APIConnectionTimeoutError
+    (err instanceof ProviderError && err.kind === "timeout")
   );
+}
+
+function safeErrorMessage(err: unknown): string {
+  if (err instanceof ProviderError) {
+    switch (err.kind) {
+      case "auth": return "AI provider authentication failed. Contact your administrator.";
+      case "rate_limit": return "AI provider rate limit reached. Please wait and try again.";
+      case "endpoint_blocked": return "AI provider endpoint is unreachable. Check network configuration.";
+      case "unavailable": return "AI provider is temporarily unavailable. Please try again.";
+      case "not_configured": return "AI provider is not configured. Contact your administrator.";
+      default: return "AI provider error. Please try again.";
+    }
+  }
+  return "Verification failed";
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +121,7 @@ router.post(
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (err) {
-      const error = isTimeoutError(err) ? "Verification timed out, please try again" : "Verification failed";
+      const error = isTimeoutError(err) ? "Verification timed out, please try again" : safeErrorMessage(err);
       res.write(`data: ${JSON.stringify({ type: "error", error })}\n\n`);
       res.write("data: [DONE]\n\n");
       if (!res.writableEnded) res.end();
@@ -135,6 +149,7 @@ router.post(
       return res.json(result);
     } catch (err) {
       if (isTimeoutError(err)) return res.status(503).json({ error: "Verification timed out, please try again" });
+      if (err instanceof ProviderError) return res.status(503).json({ error: safeErrorMessage(err) });
       next(err);
     } finally {
       clearTimeout(timer);
